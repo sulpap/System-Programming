@@ -1,12 +1,6 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 #include <signal.h>
 
+#include "includes.h"
 #include "jobs.h"
 
 char *fifo = "myfifo";
@@ -47,7 +41,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-//file exists so i just copy the pid from it
+	//file exists so i just copy the pid from it
 	else {
 		fscanf(server_file, "%d", &pid);
 		fclose(server_file);
@@ -61,3 +55,4 @@ int main(int argc, char *argv[]) {
 	jobCommander(argv, pid);
 
 }
+

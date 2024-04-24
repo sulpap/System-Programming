@@ -1,11 +1,4 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-
+#include "includes.h"
 #include "list.h"
 #include "jobs.h"
 
@@ -44,13 +37,13 @@ void jobExecutorServer() {
 		operation = strtok(msgbuf, " ");
 	
 		/*action dependind on operation chosen*/
-		if (strcmp(operation, "issuejob") == 0) {
+		if (strcmp(operation, "issueJob") == 0) {
 			unknown_command = 0;
 			parameter = strtok(NULL, "");
 			if (parameter == NULL)
-				printf("\"issuejob\" : missing argument\n");
+				printf("\"issueJob\" : missing argument\n");
 			else {
-				issuejob(parameter, &running_jobs_list, &queued_jobs_list, jobID, 1);
+				issueJob(parameter, &running_jobs_list, &queued_jobs_list, jobID, 1);
 				jobID++;
 			}
 		}

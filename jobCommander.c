@@ -1,14 +1,7 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 #include <signal.h>
 
+#include "includes.h"
 #include "jobs.h"
-
 
 void jobCommander(char **msg, int server_pid) {
 	int fd, fd2, nwrite, unknown_command = 1, i, length;
@@ -23,11 +16,11 @@ void jobCommander(char **msg, int server_pid) {
 	}
 
 	i = 2;
-	//attach all the arguments of argv in a string
+	//attach all the arguments of msg in a string
 	strcpy(msgbuf, msg[1]);
 	while (msg[i] != NULL) 
 	{
-		sprintf(msgbuf, "%s %s", msgbuf, msg[i]);
+		sprintf(msgbuf, "%s %s", msgbuf, msg[i]); 											//was printf
 		i++;
 	}
 
@@ -77,6 +70,3 @@ void jobCommander(char **msg, int server_pid) {
 	}
 	close(fd2);
 }
-	
-	
-	

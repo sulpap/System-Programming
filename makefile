@@ -1,5 +1,5 @@
-SOURCE = issuejob.c jobCommander.c jobExecutorServer.c list.c main.c
-OBJS = issuejob.o jobCommander.o jobExecutorServer.o list.o main.o
+SOURCE = issueJob.c jobCommander.c jobExecutorServer.c list.c main.c
+OBJS = issueJob.o jobCommander.o jobExecutorServer.o list.o main.o
 HEADER = jobs.h list.h
 OUT = jobCommander
 FILES = server_file myfifo myfifo2
@@ -12,8 +12,8 @@ all: $(OBJS)
 main.o : main.c
 	$(CC) $(FLAGS) main.c
 
-issuejob.o : issuejob.c
-	$(CC) $(FLAGS) issuejob.c
+issueJob.o : issueJob.c
+	$(CC) $(FLAGS) issueJob.c
 
 jobCommander.o : jobCommander.c
 	$(CC) $(FLAGS) jobCommander.c

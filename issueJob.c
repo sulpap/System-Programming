@@ -1,21 +1,16 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
+#include <sys/wait.h>
 #include <signal.h>
 
+#include "includes.h"
 #include "list.h"
 #include "jobs.h"
 
 #define RUNNING "RUNNING"
 #define QUEUED  "QUEUED"
 
-void issuejob(char*, Running_List*, Queued_List*, int, int);
+void issueJob(char*, Running_List*, Queued_List*, int, int);
 
-void issuejob(char *command, Running_List *running_jobs_list, Queued_List *queued_jobs_list, int jobID, int flag) {	
+void issueJob(char *command, Running_List *running_jobs_list, Queued_List *queued_jobs_list, int jobID, int flag) {	
 	char *args[64], job[strlen(command)], response_string[100];
 	int i, running;
 	pid_t pid;
@@ -88,7 +83,7 @@ void handler(int sig) {
 				strcpy(job, list->job);
                 		/*remove the oldest queued job*/
 				remove_queued();
-				issuejob(job, &running_jobs_list, &queued_jobs_list, jobID, 0);
+				issueJob(job, &running_jobs_list, &queued_jobs_list, jobID, 0);
 			}
 		}
 	}
@@ -113,7 +108,7 @@ void update_running() {
 				jobID = list->jobID;
 				strcpy(job, list->job);
 				remove_queued();
-				issuejob(job, &running_jobs_list, &queued_jobs_list, jobID, 0);
+				issueJob(job, &running_jobs_list, &queued_jobs_list, jobID, 0);
 			}
 		}
 	}
