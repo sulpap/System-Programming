@@ -1,102 +1,224 @@
 #include "includes.h"
+#include "list.h"
 
 #include <sys/wait.h>
 #include <signal.h>
+#include <stdbool.h>
 
-extern char *WRITE_PIPE;
-extern char *READ_PIPE;
+extern char *PIPE1;
+extern char *PIPE2;
 extern int SIZE;
+extern char *jobExecutorServer_file;
+
+Queue* running = NULL;
+Queue* queued = NULL;
+int N;
 
 void jobExecutorServer() {
-    int fd, id = 0;
-    char buffer[SIZE + 1], response[SIZE];
+    int fd1, id = 0;
+    char buf[SIZE + 1], response[SIZE];
     char *operation, *parameter;
+    bool flag; // true: we know the command, false: we don't
 
     // Εγκατάσταση σήματος για το SIGCHLD
     //signal(SIGCHLD, handle_sigchld);
 
     // we make the pipe to send back response to commander
-    if( mkfifo(READ_PIPE, 0666) == -1 ){
+    if( mkfifo(PIPE2, 0666) < 0 ) {
         if (errno != EEXIST ) {
-            perror ("mkfifo failed") ;
-            return;
+            perror ("mkfifo failed");
+            exit(1);
         }
     }
 
-    for (;;) {
+    // running = createQueue();        // is this needed????
+    // queued = createQueue();
+
+    while (1) {
         // we open the pipe for reading
-        fd = open(WRITE_PIPE, O_RDONLY);
-        if (fd == -1) {
-            perror("Server reading: pipe open error");
-            return 1;
+        fd1 = open(PIPE1, O_RDONLY);
+        if (fd1 == -1) {
+            perror("Server reading - pipe open error");
+            exit(1);
         }
 
         // we read the command from the pipe
-        if (read(fd, buffer, SIZE+1) == -1) {
-            perror("Server reading: read error");
-            return 1;
+        if( read(fd1, buf, sizeof(buf)) == -1) { // if (read(fd1, buf, SIZE+1) == -1) {
+            perror("Server reading - read error");
+            exit(1);
         }
 
         // closing reading pipe
-        close(fd);
+        close(fd1);
 
         // Διαχωρισμός του μηνύματος σε λειτουργία και παραμέτρους
-        operation = strtok(buffer, " ");
+        operation = strtok(buf, " ");
         parameter = strtok(NULL, "");
 
         // Ανάλυση της λειτουργίας και εκτέλεση αντίστοιχης ενέργειας
-        switch(operation[0]) {
-            case 'issueJob':
-                //unknown_command = 0;
-                if (parameter == NULL) {
-                    printf("\"issueJob\" : missing argument\n");
-                } else {
-                    //issueJob(parameter, &running_jobs_list, &queued_jobs_list, jobID, 1);
-                    //jobID++;
-                }
-                break;
+        if (strcmp(operation, "issueJob") == 0) {
+            flag = true;
+            if (parameter == NULL) {
+                printf("Missing argument for issueJob\n");
+            } else {
+                //issueJob(parameter, &running_jobs_list, &queued_jobs_list, jobID, 1);
+                //jobID++;
+            }
+            break;
+        }
             
-            case 'setConcurrency':
-
-            case 'stop':
-
-            case 'poll':
-
-            case 'exit':
-
-            default:
-
+        if (strcmp(operation, "setConcurrency") == 0) {
+            flag = true;
+            N = atoi(parameter); // convert string to int in order to use
+            sprintf(response, "%s %d", "Concurrency changed to :", N); //print & store string
+            //respond
+            respond_string(response); // απάντηση στον client με το νέο concurrency
+            //update_running();
+            //update running queue
+        }
+        
+        if (strcmp(operation, "stop") == 0) {
+            flag = true;
+            int id = atoi(parameter);
+            // if the job is not running
+            if (!is_running(running, id)) {
+                //if not queued -> print not found
+                if (!is_queued(queued, id)) { /////////////////////////////////////
+                    printf("Job with ID %d not found.\n", id); 
+                } else {
+                    // if queued -> stop it
+                    stop_queued(queued, id);
+                }
+            } else {
+                // else - job is runnning -> stop it
+                stop_running(running, id);
+            }
         }
 
+        if (strcmp(operation, "poll") == 0) {
+            flag = true;
+            // if the job is running -> print triplet (from running  list)
+            // else if job is queued -> print triplet (from queued list)
 
+            // free args ????????/
+        }
 
+        if (strcmp(operation, "exit") == 0) {
+            flag = true;
+            // unlink(jobExecutorServer_file);
+            // sprintf(response, "%s", "Server is exiting...");
+            // respond(response);
+            // exit(0);
+            exit_operation(fd1);
+        }
 
+        fflush(stdout); 
 
+        /* stack pverflow: A fflush(stdout) checks if there 
+        are any data in the buffer that should be written and 
+        if so, the underlying syscall is used to write the data to 
+        the OS. */
 
-
-
-        // // Ανοίγουμε το pipe για εγγραφή απαντήσεων
-        // fd2 = open(READ_PIPE, O_WRONLY);
-        // if (fd2 == -1) {
-        //     perror("Server writing: pipe open error");
-        //     return 1;
-        // }
-
-        // // Εκτέλεση της εντολής
-        // int pid = fork();
-        // if (pid == 0) { // Παιδί
-        //     // Εκτέλεση της εντολής
-        //     system(buffer);
-        //     // Εγγραφή απάντησης στο pipe
-        //     write(fd2, "Command executed successfully.", strlen("Command executed successfully.") + 1);
-        //     // Έξοδος από το παιδί
-        //     exit(0);
-        // } else if (pid > 0) { // Γονέας
-        //     // Κλείσιμο pipe εγγραφής
-        //     close(fd2);
-        // } else { // Σφάλμα
-        //     perror("Fork error");
-        //     return 1;
-        // }
+        if (flag == false) {
+            printf("This command: %s is unknown", response);
+            // respond using response
+        }
+        fflush(stdout);
     }
 }
+
+// function to respond to commander --> string
+void respond_string(char *args) {
+    int fd;
+    char buf[SIZE + 1];
+    
+    // Άνοιγμα του pipe για εγγραφή
+    fd = open(PIPE2, O_WRONLY);
+    if ( fd == -1) {
+        perror("Server writing - pipe open error");
+        exit(1);
+    }
+
+    // Αντιγραφή ορισμάτων στο buffer
+    strcpy(buf, args);
+
+    // Εγγραφή στο pipe
+    if (write(fd, buf, SIZE + 1) == -1) {
+        perror("Server writing - write error");
+        exit(1);
+    }
+
+    // Καθαρισμός buffer
+    memset(buf, 0, SIZE + 1);
+
+    // Εγγραφή "exit" στο PIPE
+    strcpy(buf, "exit");
+    if (write(fd, buf, SIZE + 1) == -1) {
+        perror("Server writing - write error");
+        exit(1);
+    }
+
+    // Κλείσιμο pipe
+    close(fd);
+}
+
+
+// function to respond to commander --> array of strings
+void respond_array(char **args) {
+    int fd;
+    char buf[SIZE + 1];
+
+    // Άνοιγμα pipe για εγγραφή
+    fd = open(PIPE2, O_WRONLY);
+    if ( fd == -1) {
+        perror("Server writing - pipe open error");
+        exit(1);
+    }
+
+    // Εγγραφή απάντησης στο pipe
+    for (int i = 0; args[i] != NULL; i++) {
+        // Αντιγραφή του κάθε στοιχείου στον buffer
+        strcpy(buf, args[i]);
+        
+        // Εγγραφή στο PIPE2
+        if (write(fd, buf, SIZE + 1) == -1) {
+            perror("Server writing - write error");
+            exit(1);
+        }
+    }
+
+    // Εγγραφή "exit" στο pipe
+    memset(buf, 0, SIZE + 1); // Καθαρισμός buffer
+    strcpy(buf, "exit"); // Αντιγραφή της λέξης "exit"
+    if (write(fd, buf, SIZE + 1) == -1) {
+        perror("Server writing - write error");
+        exit(1);
+    }
+
+    // Κλείσιμο pipe
+    close(fd);
+}
+
+void exit_operation(int fd) {
+    char exit_msg[] = "Server is exiting...";
+
+    // Διαγραφή του pipe
+    if ( unlink(jobExecutorServer_file) == -1) {
+        perror("unlink failed");
+        exit(1);
+    }
+
+    // Αποστολή μηνύματος εξόδου στον client
+    respond_string(exit_msg);
+
+    // Κλείσιμο του pipe προς αποφυγή διαρροής πόρων
+    close(fd);
+
+    // Τερματισμός του server
+    exit(0);
+    return;
+}
+
+
+
+

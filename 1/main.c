@@ -2,8 +2,8 @@
 
 #include "includes.h"
 
-char *WRITE_PIPE = "myfifo";
-char *READ_PIPE = "myfifo2";
+char *PIPE1 = "myfifo1";
+char *PIPE2 = "myfifo2";
 int SIZE = 512;
 char *jobExecutorServer_file = "jobExecutorServer_file";   // jobExecutorServer_file.txt ??????????????????
 
@@ -34,12 +34,13 @@ int main(int argc, char *argv[])
 
     // we check if the file exists
     server_file = fopen(jobExecutorServer_file, "r");
+
     // if it doesn't, we create the server
     if(server_file == NULL) {
         pid_t server_pid = fork();
-		if (server_pid == -1) {
-			perror("Fork failed");
-			exit(1);
+		if (server_pid < 0) {
+			perror("Error while creating jobExecutorServer -- Fork failed");
+			exit(EXIT_FAILURE);;
 		}
 
         if (server_pid == 0)    //child
@@ -48,6 +49,14 @@ int main(int argc, char *argv[])
 			server_file = fopen(jobExecutorServer_file, "w");
 			fprintf(server_file, "%d\n", getpid());
 			fclose(server_file);
+            
+            /* or: 
+            if ((fd = open(serverinfo, O_RDWR | O_CREAT, 0644)) == -1) //create serverinfo file containing pid
+	    	{
+			perror("Error while creating serverinfo file: ");
+			exit(1);
+		    }*/
+
 			jobExecutorServer();
             // Όταν η διεργασία του jobExecutorServer ξεκινά, μπορεί να γράψει το δικό της PID (Process ID) 
             //σε ένα αρχείο. Αυτό το αρχείο μπορεί να χρησιμοποιηθεί από τον jobCommander για να ελέγξει αν 
@@ -59,10 +68,10 @@ int main(int argc, char *argv[])
         {
 			pid = server_pid;
             // we create the server pipe
-			if (mkfifo (WRITE_PIPE, 0666) == -1){
+			if (mkfifo (PIPE1, 0666) < 0){
 				if (errno != EEXIST ) {
 					perror ("mkfifo failed") ;
-					return -1;
+					exit(EXIT_FAILURE);
 				}
 			}
 		}
@@ -73,11 +82,10 @@ int main(int argc, char *argv[])
 		fclose(server_file);
     }
 
-    //jobCommander(argv, pid);
+    jobCommander(argv, pid);
 
-
-    //mkfifo(WRITE_PIPE, 0666);
-    //mkfifo(READ_PIPE, 0666);
+    //mkfifo(PIPE1, 0666);
+    //mkfifo(PIPE2, 0666);
 }
 
 

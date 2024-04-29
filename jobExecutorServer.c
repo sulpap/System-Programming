@@ -140,8 +140,6 @@ void response(char *args) {
 			exit(2);
 	}
 	close(fd2);
-
-
 }
 
 /*write response to commander*/
