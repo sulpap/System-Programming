@@ -1,6 +1,6 @@
 #include <signal.h>
 
-#include "includes.h"
+#include "myheaders.h"
 
 char *PIPE1 = "myfifo1";
 char *PIPE2 = "myfifo2";

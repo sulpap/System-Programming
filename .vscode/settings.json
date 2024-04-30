@@ -2,6 +2,9 @@
     "files.associations": {
         "wait.h": "c",
         "includes.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "stdbool.h": "c",
+        "signal.h": "c",
+        "myheaders.h": "c"
     }
 }

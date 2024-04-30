@@ -1,11 +1,11 @@
 // jobCommander
 #include <signal.h>
 
-#include "includes.h"
+#include "myheaders.h"
 
-extern char *PIPE1;
-extern char *PIPE2;
-extern int SIZE;
+// extern char *PIPE1;
+// extern char *PIPE2;
+// extern int SIZE;
 
 void jobCommander(char **msg, int server_pid) {
     int fd1, fd2;

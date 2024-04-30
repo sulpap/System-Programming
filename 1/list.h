@@ -20,11 +20,11 @@ Queue* createQueue();
 void add(Queue* queue, char* jobID, char* job, int queuePosition);
 void remove_node(Queue* queue);
 int isEmpty(Queue* queue);
-void destroyQueue(Queue* queue);
+//void destroyQueue(Queue* queue);
 void printQueue(Queue* queue);
 int queueSize(Queue* queue);
 
-bool is_running(Queue* running, int id);
-bool is_queued(Queue* queued, int id);
-bool stop_queued(Queue* queued, int id);
-bool stop_running(Queue* running, int id);
+// bool is_running(Queue* running, int id);
+// bool is_queued(Queue* queued, int id);
+// bool stop_queued(Queue* queued, int id);
+// bool stop_running(Queue* running, int id);
