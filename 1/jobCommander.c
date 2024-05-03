@@ -58,10 +58,12 @@ void jobCommander(char **msg, int server_pid) {
         if (bytes_read == -1) {
             perror("Commander reading: read error");
             break; // Έξοδος από τον βρόχο σε περίπτωση σφάλματος
-        } else if (bytes_read == 0) {
-            // Το pipe έκλεισε, τερματίζουμε τον βρόχο
-            break;
-        } else {
+        } 
+        // else if (bytes_read == 0) {
+        //     // Το pipe έκλεισε, τερματίζουμε τον βρόχο
+        //     break;
+        // } 
+        else {
             // Εκτυπώνουμε την απάντηση που λάβαμε
             buf[bytes_read] = '\0'; // Τερματίζουμε το string με NULL χαρακτήρα
             printf("Response from server: %s\n", buf);

@@ -17,7 +17,7 @@ bool stop_running(Queue* running, int id);
 void update_running_jobs();
 
 void jobExecutorServer() {
-    int fd1, id = 0;
+    int fd1, jobID = 0, id;
     char buf[SIZE + 1], response[SIZE];
     char *operation, *parameter;
     bool flag; // true: we know the command, false: we don't
@@ -25,7 +25,7 @@ void jobExecutorServer() {
     // we make the pipe to send back response to commander
     if( mkfifo(PIPE2, 0666) < 0 ) {
         if (errno != EEXIST ) {
-            perror ("mkfifo failed");
+            perror ("mkfifo (PIPE2) failed");
             exit(1);
         }
     }
@@ -34,8 +34,8 @@ void jobExecutorServer() {
     // queued = createQueue();
 
     while (1) {
-        // we open the pipe for reading
-        fd1 = open(PIPE1, O_RDONLY);
+        // we open the pipe for reading/writing
+        fd1 = open(PIPE1, O_RDWR);
         if (fd1 == -1) {
             perror("Server reading - pipe open error");
             exit(1);
@@ -60,11 +60,11 @@ void jobExecutorServer() {
             if (parameter == NULL) {
                 printf("Missing argument for issueJob\n");
             } else {
-                issueJob(parameter, &running, &queued, id, 1);
-                //jobID++;
-                id++;
+                issueJob(parameter, &running, &queued, jobID, 1);
+                jobID++;
+                // id++;
             }
-            break;
+            // break;
         }
             
         if (strcmp(operation, "setConcurrency") == 0) {
@@ -74,7 +74,7 @@ void jobExecutorServer() {
             //respond
             respond_string(response); // απάντηση στον client με το νέο concurrency
             //update running queue
-            // update_running_jobs();
+            update_running_jobs();
         }
         
         if (strcmp(operation, "stop") == 0) {
@@ -138,6 +138,7 @@ void jobExecutorServer() {
         if (flag == false) {
             printf("This command: %s is unknown", response);
             // respond using response
+            respond_string(response);
         }
         fflush(stdout);
     }
@@ -247,7 +248,6 @@ bool is_running(Queue* running, int id) {
 }
 /*Αυτή η συνάρτηση ελέγχει αν ένα job με το συγκεκριμένο id τρέχει αυτή τη στιγμή. Ξεκινά από τον πρώτο κόμβο της running ουράς και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 1 (που σημαίνει ότι τρέχει). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
 
-
 // Συνάρτηση για να ελέγξει αν μια εργασία είναι στην ουρά αναμονής
 bool is_queued(Queue* queued, int id) {
     Node* current = queued->front;
@@ -260,7 +260,6 @@ bool is_queued(Queue* queued, int id) {
     return false;
 }
 /*Αυτή η συνάρτηση ελέγχει αν ένα job με το δοσμένο id είναι στην ουρά αναμονής (queued). Ξεκινά από τον πρώτο κόμβο της ουράς αναμονής και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 0 (που σημαίνει ότι είναι στην ουρά αναμονής). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
-
 
 // Συνάρτηση για να σταματήσει μια εργασία που είναι στην ουρά αναμονής
 bool stop_queued(Queue* queued, int id) {
@@ -281,6 +280,7 @@ bool stop_running(Queue* running, int id) {
     while (current != NULL) {
         if (atoi(current->jobID) == id && current->status == 1) {
             current->status = -1; // Σταματάει την εργασία που τρέχει
+            kill(current->job, SIGKILL); //////// ????????????
             return true;
         }
         current = current->next;
@@ -288,11 +288,10 @@ bool stop_running(Queue* running, int id) {
     return false;
 }
 
-
 void update_running_jobs() {
     int running_jobs = queueSize(running);
 
-    if (running_jobs < Concurrency) {
+    if (running_jobs < Concurrency) { // //If I am permitted to execute
         int i;
         int remaining_capacity = Concurrency - running_jobs; // Υπολογισμός του ανεκτέλεστου χώρου στον πίνακα των τρεχουσών εργασιών
 
@@ -317,6 +316,8 @@ void update_running_jobs() {
                 break;
             }
         }
+        // else, if due to small Concurrency i can't run the command add it to pending queue to
+		// be executed later ?????????????
     }
 }
 
