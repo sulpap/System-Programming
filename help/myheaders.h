@@ -11,4 +11,4 @@ extern char *PIPE2;
 extern int SIZE;
 
 void jobExecutorServer();
-int jobCommander(int argc, char *argv[]);
+//int jobCommander(const char *);
