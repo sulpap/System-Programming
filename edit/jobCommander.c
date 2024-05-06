@@ -11,18 +11,20 @@
 
 
 void jobCommander(char **msg, int server_pid) {
-	int fd, fd2, nwrite, unknown_command = 1, i, length;
-	char msgbuf[MSGSIZE+1], msgb[MSGSIZE+1];
+	int fd, fd2, i;
+	char msgbuf[MSGSIZE+1]; //msgb[MSGSIZE+1];
 
 	/*open the pipe to read data*/
-	if( (fd=open(fifo, O_WRONLY)) < 0) {
+	fd=open(PIPE1, O_WRONLY);
+	if( fd == -1) {
 		perror("commander writing: fifo open error");
 		exit(1);
 	}
 
 	i = 2;
         /*attach all the arguments of argv in a string*/
-	strcpy(msgbuf, msg[1]);
+	//strcpy(msgbuf, msg[1]);
+	sprintf(msgbuf, "%s", msg[1]);
 	while (msg[i] != NULL) {
 		sprintf(msgbuf, "%s %s", msgbuf, msg[i]);
 		i++;
@@ -35,27 +37,39 @@ void jobCommander(char **msg, int server_pid) {
         }*/	
 
         /*write the string in the pipe*/  
-	if ((nwrite=write(fd, msgbuf, MSGSIZE + 1)) == -1) {
+	if (write(fd, msgbuf, MSGSIZE + 1) < 0) {
 		perror("Commander : Error in Writing");
-		exit(2);
+		exit(1);
 	}
 	close(fd);
 	
  	/*open the second pipe for reading response*/
-	if ( (fd2=open(fifo2, O_RDWR)) < 0) {
+	fd2=open(PIPE2, O_RDWR);
+	if ( fd2 < 0) {
 		perror("commander reading : fifo open problem"); 
-		exit(3);	
+		exit(1);	
 	}
 	/*while server is sending something back*/
 	while (1) {
+		ssize_t bytes_read = read(fd2, msgbuf, MSGSIZE+1);
 		/*read response*/
-		if (read(fd2, msgb, MSGSIZE+1) < 0) {
-			perror("commander : problem in reading");exit(5);
+		if (bytes_read < 0) {
+			perror("commander : problem in reading");
+			exit(1);
 		}
 		/*if i read "exit" this means the end of arguments*/
-		if (strcmp(msgb, "exit") == 0)
-			break;
-		printf("%s\n", msgb);
+		else {
+            // Εκτυπώνουμε την απάντηση που λάβαμε
+            //msgbuf[bytes_read] = '\0'; // Τερματίζουμε το string με NULL χαρακτήρα
+
+            // Έλεγχος για το "exit" για τερματισμό του βρόχου
+            if (strcmp(msgbuf, "exit") == 0) {
+                break;
+            }
+            printf("Response from server: %s\n", msgbuf);
+        }			
+		
+
 	}
 	close(fd2);
 	

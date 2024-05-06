@@ -2,7 +2,7 @@ SOURCE = issuejob.c jobCommander.c jobExecutorServer.c list.c main.c
 OBJS = issuejob.o jobCommander.o jobExecutorServer.o list.o main.o
 HEADER = jobs.h list.h
 OUT = jobCommander
-FILES = server_file myfifo myfifo2
+FILES = server_file myfifo1 myfifo2
 CC = gcc
 FLAGS = -c
 

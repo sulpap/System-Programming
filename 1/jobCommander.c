@@ -78,3 +78,8 @@ void jobCommander(char **msg, int server_pid) {
     close(fd2);
 
 }
+
+
+
+// to while (1) thelei allagh. 
+// h main einai oloidia episis soooooooo

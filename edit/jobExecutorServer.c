@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #include "list.h"
 #include "jobs.h"
@@ -14,39 +15,42 @@ Queued_List queued_jobs_list = NULL;
 int N = 1;
 
 void jobExecutorServer() {
-	int fd, fd2, unknown_command = 1, i, jobID = 0, id, nwrite, stopped, length;
+	int fd, fd2, i, jobID = 0, id, nwrite, stopped, length;
 	char msgbuf[MSGSIZE + 1], *operation, *parameter, *args[64], response_string[100];
+	bool flag = false;
 	/*make fifo to send response back to commander*/
-	if (mkfifo (fifo2 , 0666) == -1){
+	if (mkfifo (PIPE2 , 0666) == -1){
 		if (errno != EEXIST ) {
 			perror ("mkfifo failed") ;
-			exit (6) ;
+			exit (1) ;
 		}
 	}
 	
-	for (;;) {
+	while(1) {
 
 		for (i=0 ; i<64 ; i++)
 			args[i] = NULL;
 
-		if ( (fd=open(fifo, O_RDWR)) < 0) {
+		fd=open(PIPE1, O_RDWR);
+		if ( fd < 0) {
 			perror("server : fifo open problem"); 
-			exit(3);	
+			exit(1);	
 		}
 
-		if (read(fd, msgbuf, MSGSIZE + 1) < 0) {
-			perror("problem in reading");exit(5);
+		if (read(fd, msgbuf, MSGSIZE + 1) == -1) {
+			perror("problem in reading");
+			exit(1);
 		}
 		close(fd);	
 		/*split the string read in the first space met*/
 		/*the first argument will be the operation chosen*/
 		/*and the second will be the command*/
 		operation = strtok(msgbuf, " ");
+		parameter = strtok(NULL, "");
 	
 		/*action dependind on operation chosen*/
 		if (strcmp(operation, "issuejob") == 0) {
-			unknown_command = 0;
-			parameter = strtok(NULL, "");
+			flag = true;
 			if (parameter == NULL)
 				printf("\"issuejob\" : missing argument\n");
 			else {
@@ -55,8 +59,8 @@ void jobExecutorServer() {
 			}
 		}
 		if (strcmp(operation, "setConcurrency") == 0) {
-			unknown_command = 0;
-			parameter = strtok(NULL, " ");
+			flag = true;
+			//parameter = strtok(NULL, " ");
 			N = atoi(parameter);
 			sprintf(response_string, "%s %d", "Concurrency changed to :", N);
 			response(response_string);
@@ -64,8 +68,8 @@ void jobExecutorServer() {
 			update_running();
 		}
 		if (strcmp(operation, "stop") == 0) {
-			unknown_command = 0;
-			parameter = strtok(NULL, " ");
+			flag = true;
+			//parameter = strtok(NULL, " ");
 			id = atoi(parameter);
 			if (!stop(&running_jobs_list, id)) {
 			/*the job is not running*/
@@ -89,7 +93,7 @@ void jobExecutorServer() {
 			}
 		}
 		if (strcmp(operation, "poll") == 0) {
-			unknown_command = 0;
+			flag = true;
 			parameter = strtok(NULL, " ");
 			if (strcmp(parameter, "running") == 0) {
 				print_running(running_jobs_list, args);
@@ -108,12 +112,12 @@ void jobExecutorServer() {
 			}
 		}
 		if (strcmp(operation, "exit") == 0) {
-			unknown_command = 0;
+			flag = true;
 			exit_operation(fd);
 		}
 
 		fflush(stdout);
-		if (unknown_command == 1) {
+		if (flag == false) {
 			sprintf(response_string, "%s", "Operation selected : unknown\n");
 			response(response_string);
 		}
@@ -129,7 +133,7 @@ void response(char *args) {
 	int fd2, nwrite, i;
 	char msgbuf[MSGSIZE+1];
 
-	if( (fd2=open(fifo2, O_WRONLY)) < 0) {
+	if( (fd2=open(PIPE2, O_WRONLY)) < 0) {
 		perror("server writing: fifo open error");
 		exit(1);
 	}
@@ -157,7 +161,7 @@ void send_response(char **args) {
 	int fd2, nwrite, i;
 	char msgbuf[MSGSIZE+1];
 
-	if( (fd2=open(fifo2, O_WRONLY)) < 0) {
+	if( (fd2=open(PIPE2, O_WRONLY)) < 0) {
 		perror("commander writing: fifo open error");
 		exit(1);
 	}

@@ -1,39 +1,59 @@
-// gcc pipes_one_terminal.c -o pipes_one_terminal
-// ./pipes_one_terminal hello
+// ./main hello
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
+#include "myheaders.h"
 
-#define FIFO_FILE1 "/tmp/pipe1"
-#define FIFO_FILE2 "/tmp/pipe2"
+char *PIPE1 = "myfifo1";
+char *PIPE2 = "myfifo2";
+char *server_file = "jobExecutorServer_file";
+int SIZE = 400;
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <message>\n", argv[0]);
-        return 1;
+
+    if (argc == 1) {
+        printf("Wrong number of arguments\n");
+        return -1;
     }
 
-    int fd1, fd2;
+    int pid2, fd1, fd2;
     pid_t pid;
-    char buf[1024];
+    char buf[SIZE];
+    FILE *sv_file;
 
-    // Create the named pipes (FIFOs)
-    mkfifo(FIFO_FILE1, 0666);
-    mkfifo(FIFO_FILE2, 0666);
+    //mkfifo(PIPE1, 0666);
 
-    // Fork the process
-    pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        exit(EXIT_FAILURE);
+    if(sv_file = open(server_file, O_RDONLY, 0644) == -1) {
+        // Fork the process
+        pid = fork();
+        if (pid < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pid == 0){
+            sv_file = fopen(server_file,"w");
+            fprintf(sv_file, "%d\n", getpid());
+			fclose(sv_file);
+
+        jobExecutorServer();
+        } else {
+            pid2 = pid;
+            if (mkfifo (PIPE1, 0666) < 0){
+                if (errno != EEXIST ) {
+                    perror ("mkfifo failed") ;
+                    exit(1);
+                }
+            }
+        }
+    } else {
+        fscanf(server_file, "%d", &pid);
+		fclose(server_file);
     }
+    
+    //jobCommander(argv, pid);
 
     if (pid > 0) {  // Parent process (Process 1)
         // Open the first named pipe for writing (to send message)
-        fd1 = open(FIFO_FILE1, O_WRONLY);
+        fd1 = open(PIPE1, O_WRONLY);
         if (fd1 < 0) {
             perror("open");
             exit(EXIT_FAILURE);
@@ -45,7 +65,7 @@ int main(int argc, char *argv[]) {
         close(fd1);
 
         // Open the second named pipe for reading (to receive response)
-        fd2 = open(FIFO_FILE2, O_RDONLY);
+        fd2 = open(PIPE2, O_RDONLY);
         if (fd2 < 0) {
             perror("open");
             exit(EXIT_FAILURE);
@@ -58,7 +78,7 @@ int main(int argc, char *argv[]) {
         close(fd2);
     } else {  // Child process (Process 2)
         // Open the first named pipe for reading (to receive message)
-        fd1 = open(FIFO_FILE1, O_RDONLY);
+        fd1 = open(PIPE1, O_RDONLY);
         if (fd1 < 0) {
             perror("open");
             exit(EXIT_FAILURE);
@@ -71,7 +91,7 @@ int main(int argc, char *argv[]) {
         close(fd1);
 
         // Open the second named pipe for writing (to send response)
-        fd2 = open(FIFO_FILE2, O_WRONLY);
+        fd2 = open(PIPE2, O_WRONLY);
         if (fd2 < 0) {
             perror("open");
             exit(EXIT_FAILURE);

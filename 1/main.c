@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
         pid_t server_pid = fork();
 		if (server_pid < 0) {
 			perror("Error while creating jobExecutorServer -- Fork failed");
-			exit(EXIT_FAILURE);;
+			exit(1);
 		}
 
         if (server_pid == 0)    //child
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 			fclose(server_file);
             
             /* or: 
-            if ((fd = open(serverinfo, O_RDWR | O_CREAT, 0644)) == -1) //create serverinfo file containing pid
+            if ((fd = open(server_file, O_RDWR | O_CREAT, 0644)) == -1) //create serverinfo file containing pid
 	    	{
 			perror("Error while creating serverinfo file: ");
 			exit(1);
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 			if (mkfifo (PIPE1, 0666) < 0){
 				if (errno != EEXIST ) {
 					perror ("mkfifo failed") ;
-					exit(EXIT_FAILURE);
+					exit(1);
 				}
 			}
 		}

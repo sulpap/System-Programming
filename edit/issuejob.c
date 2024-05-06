@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #include "list.h"
 #include "jobs.h"
@@ -105,6 +106,7 @@ void update_running() {
 	Queued_List list;
 	
 	running = count(&running_jobs_list);
+	
 	if (running < N) {
 		for (i=0 ; i<abs(N-running) ; i++) {
 			queued = count_queued(&queued_jobs_list);
@@ -117,7 +119,6 @@ void update_running() {
 			}
 		}
 	}
-	
 }
 
 /*splitting the command into arguments*/

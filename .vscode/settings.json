@@ -5,6 +5,7 @@
         "unistd.h": "c",
         "stdbool.h": "c",
         "signal.h": "c",
-        "myheaders.h": "c"
+        "myheaders.h": "c",
+        "stdlib.h": "c"
     }
 }

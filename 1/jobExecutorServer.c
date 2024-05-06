@@ -301,13 +301,14 @@ void update_running_jobs() {
                 Node* job_node = queued->front;
                 char* jobID = job_node->jobID;
                 char* job = job_node->job;
+                // strcpy(job, job_node->job);
                 int queuePosition = job_node->queuePosition;
                 
                 // Αφαίρεση της εργασίας από την ουρά αναμονής
                 remove_node(queued);
 
                 // Εισαγωγή της εργασίας στη λίστα των τρεχουσών εργασιών
-                add(running, jobID, job, queuePosition);
+                add(running, jobID, job, queuePosition); // ????
 
                 // Εκτέλεση της εργασίας
                 issueJob(job, running, queued, atoi(jobID), 0);

@@ -9,22 +9,28 @@
 
 #include "jobs.h"
 
-char *fifo = "myfifo";
-char *fifo2 = "myfifo2";
+char *PIPE1 = "myfifo1";
+char *PIPE2 = "myfifo2";
 char *server_file_name = "server_file";
-int MSGSIZE = 512;
+int MSGSIZE = 1024;
 
 int main(int argc, char *argv[]) {
-	pid_t server_pid;
+
+	if (argc == 1) {
+		printf("Wrong number of arguments\n");
+		exit(1);
+	}
+
+	//pid_t server_pid;
 	FILE *server_file;
-	FILE *commander_file;
+	//FILE *commander_file;
 	int fd, pid;
 
 	server_file = fopen(server_file_name, "r");
         /*the file does not exists so i need to create the server*/
 	if (server_file == NULL) {
-		server_pid = fork();
-		if (server_pid == -1) {
+		pid_t server_pid = fork();
+		if (server_pid < 0) {
 			perror("Fork failed");
 			exit(1);
 		}
@@ -38,11 +44,11 @@ int main(int argc, char *argv[]) {
 		}
 		else {
 			pid = server_pid;
-                        /*create fifo - named pipe*/
-			if (mkfifo (fifo , 0666) == -1){
+                        /*create PIPE1 - named pipe*/
+			if (mkfifo (PIPE1 , 0666) < 0){
 				if (errno != EEXIST ) {
 					perror ("mkfifo failed") ;
-					exit (6) ;
+					exit(1) ;
 				}
 			}
 		}
@@ -53,11 +59,6 @@ int main(int argc, char *argv[]) {
 		fclose(server_file);
 	}
 	
-	if (argc == 1) {
-		printf("missing arguments...\n");
-		exit(1);
-	}
-
 	jobCommander(argv, pid);
 
 }

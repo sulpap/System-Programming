@@ -1,8 +1,8 @@
 
 extern int MSGSIZE;
 extern int N;
-extern char *fifo;
-extern char *fifo2;
+extern char *PIPE1;
+extern char *PIPE2;
 extern char *server_file_name;
 
 void jobExecutorServer();
