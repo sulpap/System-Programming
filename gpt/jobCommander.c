@@ -1,111 +1,35 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <signal.h>
 
-#define MAXLEN 1024 // Μέγιστο μήκος ενός μηνύματος
-#define BUF_SIZE 1024 // Μέγεθος buffer
+#define FIFO_NAME "myfifo"
+#define MAX_MSG_SIZE 512
 
-int main(int argc, char *argv[]) {
-    const char *fifo = "mypipe";
-    const char *serverinfo = "./serverinfo";
-    char buffer[BUF_SIZE];
-    int pd, fd;
-    pid_t serverPid;
+void jobCommander(char **msg, int server_pid) {
+    int fd;
+    char fifo[MAX_MSG_SIZE];
 
-    // Άνοιγμα του named pipe για ανάγνωση/εγγραφή
-    if ((pd = open(fifo, O_RDWR | O_NONBLOCK)) < 0) {
-        perror("Error opening pipe");
-        exit(1);
+    // Open the named pipe for writing
+    if ((fd = open(FIFO_NAME, O_WRONLY)) == -1) {
+        perror("Failed to open FIFO for writing");
+        exit(EXIT_FAILURE);
     }
 
-    // Άνοιγμα ή δημιουργία του αρχείου πληροφοριών του server
-    if ((fd = open(serverinfo, O_RDONLY, 0644)) == -1) {
-        perror("Error opening serverinfo file");
-        exit(1);
+    // Construct the message by concatenating command-line arguments
+    strcpy(fifo, msg[1]);
+    for (int i = 2; msg[i] != NULL; ++i) {
+        strcat(fifo, " ");
+        strcat(fifo, msg[i]);
     }
 
-    // Ανάγνωση του PID του server από το αρχείο πληροφοριών
-    if (read(fd, buffer, BUF_SIZE) == -1) {
-        perror("Error reading server PID");
-        exit(1);
+    // Write the message to the named pipe
+    if (write(fd, fifo, MAX_MSG_SIZE) == -1) {
+        perror("Failed to write to FIFO");
+        exit(EXIT_FAILURE);
     }
+
+    // Close the named pipe
     close(fd);
-
-    serverPid = atoi(buffer);
-
-    // Καθορισμός του τύπου εντολής που θα εκτελεστεί
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s [OPTION] [ARGUMENT]\n", argv[0]);
-        exit(1);
-    }
-
-    // Αποστολή της εντολής στον server
-    if (write(pd, argv[1], strlen(argv[1])) == -1) {
-        perror("Error writing to pipe");
-        exit(1);
-    }
-
-    // Στέλνεται SIGCONT στον server για να επεξεργαστεί την εντολή
-    kill(serverPid, SIGCONT);
-
-    // Αναμονή για απάντηση από τον server
-    if (read(pd, buffer, BUF_SIZE) == -1) {
-        perror("Error reading from pipe");
-        exit(1);
-    }
-
-    // Εκτύπωση της απάντησης
-    printf("%s\n", buffer);
-
-    close(pd);
-    return 0;
-}
-
-
-int jobExecutorServer() {
-    const char *fifo = "mypipe";
-    const char *serverinfo = "./serverinfo";
-    char buffer[BUF_SIZE];
-    int pd, fd;
-
-    // Άνοιγμα του named pipe για ανάγνωση/εγγραφή
-    if ((pd = open(fifo, O_RDWR | O_NONBLOCK)) < 0) {
-        perror("Error opening pipe");
-        exit(1);
-    }
-
-    // Δημιουργία ή άνοιγμα του αρχείου πληροφοριών του server
-    if ((fd = open(serverinfo, O_RDWR | O_CREAT | O_TRUNC, 0644)) == -1) {
-        perror("Error opening serverinfo file");
-        exit(1);
-    }
-
-    // Εγγραφή του PID του server στο αρχείο πληροφοριών
-    snprintf(buffer, BUF_SIZE, "%d", getpid());
-    if (write(fd, buffer, strlen(buffer)) == -1) {
-        perror("Error writing server PID");
-        exit(1);
-    }
-    close(fd);
-
-    // Αναμονή για εντολές από τον jobCommander
-    for (;;) {
-        if (read(pd, buffer, BUF_SIZE) == -1) {
-            perror("Error reading from pipe");
-            exit(1);
-        }
-
-        // Εδώ μπορείτε να εκτελέσετε κάποια εντολή ανάλογα με το περιεχόμενο του buffer
-
-        // Παράδειγμα: απλή εκτύπωση της εντολής
-        printf("Received command: %s\n", buffer);
-    }
-
-    close(pd);
-    return 0;
 }

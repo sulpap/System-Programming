@@ -4,31 +4,23 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-void parse(char *command, char **args);
+void parser(char *command, char **args);
 void handler(int sig);
-
-
-// void issueJob(char *command, Queue* running, Queue* queued, int *jobID, int *queuePosition) {
-//     printf("issue job is running");
-// }
-
 
 void issueJob(char *command, Queue* running, Queue* queued, int *jobID, int *queuePosition) {
     char *args[64], response[SIZE];
-    int running_jobs_count;
+    int running_num;
 
-    // Ανάλυση της εντολής σε ορίσματα
-    parse(command, args);
+    parser(command, args); // analysh ths entolhs se orismata
 
     // Σήμανση για αντιμετώπιση SIGCHLD σε περίπτωση που έχει τελειώσει κάποια διεργασία
-    signal(SIGCHLD, handler);
+    signal(SIGCHLD, handler); // in case a process ends
 
-    // Μέτρηση των εργασιών που τρέχουν
-    running_jobs_count = queueSize(running);
+    running_num = queueSize(running);
 
     // Υπάρχει χώρος για περισσότερες εργασίες που τρέχουν
-    if (running_jobs_count < Concurrency) {
-        if (running_jobs_count > 0) {
+    if (running_num < Concurrency) {
+        if (running_num > 0) {
             // Το flag είναι 1 όταν η συνάρτηση καλείται γιατί μια εργασία έχει τελειώσει και μια εκκρεμής θα μεταφερθεί στις τρέχουσες
             sprintf(response, "job_%d\t%s\tRUNNING", *jobID, command);
             respond_string(response);
@@ -42,70 +34,75 @@ void issueJob(char *command, Queue* running, Queue* queued, int *jobID, int *que
             exit(EXIT_FAILURE);
         }
         if (pid == 0) { 
-            // Εκτέλεση της εντολής
+            // execute command
             execvp(*args, args); 
             perror(*args);
             exit(EXIT_FAILURE);
         } else { 
-            // Προσθήκη της εργασίας στις τρέχουσες
-            add(running, jobID, strdup(command), *queuePosition);
+            // add process to running jobs
+            add(running, strdup(command), jobID);
         }
     } else {
-        // Δεν υπάρχει χώρος για περισσότερες τρέχουσες εργασίες, οπότε προστίθεται στις εκκρεμείς
+        // den yparxei xwros opote th vazume sthn oura anamonhs
         sprintf(response, "job_%d\t%s\tQUEUED", *jobID, command);
         respond_string(response);
-        add(queued, jobID, strdup(command), *queuePosition);
+        add(queued,strdup(command), jobID);
     }
 
-    // Αύξηση του jobID και της θέσης στην ουρά
     (*jobID)++;
     (*queuePosition)++;
 }
 
-// // Συνάρτηση για εισαγωγή μιας εργασίας στην ουρά αναμονής
-// void issueJob(char* job, Queue* queued) {
-//     static int jobID_counter = 1; // Μεταβλητή για τον αριθμό της εργασίας
-//     char jobID[20]; // Μεταβλητή για το ID της εργασίας
-    
-//     // Δημιουργία του ID της εργασίας με τη μορφή "job_XX"
-//     sprintf(jobID, "job_%02d", jobID_counter);
-    
-//     // Αύξηση του μετρητή του ID για την επόμενη εργασία
-//     jobID_counter++;
-    
-//     // Προσθήκη της εργασίας στην ουρά αναμονής με την queuePosition αντίστοιχη με το μέγεθος της ουράς + 1
-//     add(queued, jobID, job, queueSize(queued) + 1);
-    
-//     // Εκτύπωση της τριπλέτας <jobID, job, queuePosition> στον jobCommander
-//     printf("JobID: %s, Job: %s, Queue Position: %d\n", jobID, job, queueSize(queued));
-// }
-
-
 // Συνάρτηση για τη διαχωρισμό μιας γραμμής εντολών σε ορίσματα
-void parse(char *command, char **args) {
-    char *token;
+void parser(char *command, char **args) {
+    char *token = strtok(command, " \t\n"); // tokenize based on spaces, tabs and newlines
     int i = 0;
 
-    // Χρήση της συνάρτησης strtok για τον διαχωρισμό των ορισμάτων
-    token = strtok(command, " ");
     while (token != NULL) {
-        args[i] = token;
-        i++;
-        token = strtok(NULL, " ");
+        args[i++] = token;
+        token = strtok(NULL, " \t\n");
     }
-    args[i] = NULL;  // Τερματισμός πίνακα ορισμάτων με NULL
+
+    args[i] = NULL;
 }
 
 // Συνάρτηση που χειρίζεται το SIGCHLD σήμα
 void handler(int sig) {
-    pid_t pid;
-    int status;
+    pid_t terminated_pid;
+    int status, running_num, queued_num, i, capacity;
+    char job[200];
 
     // Χρήση της waitpid για την αναμονή του παιδιού
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        // Εδώ μπορείτε να πραγματοποιήσετε επιπλέον επεξεργασία εάν είναι απαραίτητο
-        printf("Child process with PID %d terminated\n", pid);
+    terminated_pid = waitpid(-1, &status, WNOHANG);
+    while (terminated_pid > 0) {
+        delete_job(&running, pid);
     }
+
+    running_num = queueSize(running);
+    //printf("Child process with PID %d terminated\n", pid);
+
+    if (running_num < Concurrency) {
+        //capacity = Concurrency - running_num;
+        while (!isEmpty(queued) && running_num < Concurrency) {
+            queued_num = queueSize(queued);
+            if (queued>0) {
+                Queue tmp = queued;
+                int jobID = tmp->jobID;
+                strcpy(job, tmp->job);
+
+                int qid = get_first_job(queued);
+                delete_job(queued, qid);
+                issuejob(job, &running, &queued, jobID, 0);
+            }
+        }
+    }
+    //if there is space in the list
+    //try to run as many jobs as the running list can take
+    // as long as there are queued jobs
+    // if queued > 0 remove the oldest queued job
+
+
+
 }
 
 

@@ -123,13 +123,15 @@ void update_running() {
 
 /*splitting the command into arguments*/
 void parse(char *buf, char **args) {
-	while (*buf != '\0') {
-		while ((*buf == ' ') || (*buf == '\t') || (*buf == '\n'))
-			*buf++ = '\0'; 
-		*args++ = buf;
-		while ((*buf != '\0') && (*buf != ' ') && (*buf != '\t') && (*buf != '\n'))
-			buf++; 
-		*args = NULL;
-	}
-	
+    char *token;
+    int i = 0;
+
+    // Χρήση της συνάρτησης strtok για τον διαχωρισμό των ορισμάτων
+    token = strtok(buf, " ");
+    while (token != NULL) {
+        args[i] = token;
+        i++;
+        token = strtok(NULL, " ");
+    }
+    args[i] = NULL;  // Τερματισμός πίνακα ορισμάτων με NULL
 }

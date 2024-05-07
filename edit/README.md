@@ -5,7 +5,7 @@ Makefile is included to compile the jobCommander program.
 Run the jobCommander with the following parameters:
 
 * ./jobCommander issuejob **job**  
-e.g ./jobCommander issuejob ls -l  
+e.g ./jobCommander   ls -l  
 (Executes the <job command>)
 
 * ./jobCommander setConcurrency **N**  

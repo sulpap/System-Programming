@@ -68,9 +68,6 @@ int main(int argc, char *argv[])
     }
 
     jobCommander(argv, pid);
-
-    //mkfifo(PIPE1, 0666);
-    //mkfifo(PIPE2, 0666);
 }
 
 

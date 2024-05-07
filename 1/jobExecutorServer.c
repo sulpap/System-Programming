@@ -10,11 +10,11 @@ Queue* queued = NULL;
 int Concurrency;
 
 void exit_do(int fd);
-bool is_running(Queue* running, int id);
-bool is_queued(Queue* queued, int id);
-bool stop_queued(Queue* queued, int id);
-bool stop_running(Queue* running, int id);
 void update_running_jobs();
+// bool is_running(Queue* running, int id);
+// bool is_queued(Queue* queued, int id);
+// bool stop_queued(Queue* queued, int id);
+// bool stop_running(Queue* running, int id);
 
 void jobExecutorServer() {
     int fd1, jobID = 0, id;
@@ -81,20 +81,20 @@ void jobExecutorServer() {
             flag = true;
             int id = atoi(parameter);
             // if the job is not running
-            if (!is_running(running, id)) {
+            //if (!is_running(running, id)) {
                 //if not queued -> print not found
-                if (!is_queued(queued, id)) { /////////////////////////////////////
-                    printf("Job with ID %d not found.\n", id); 
-                } else {
+                // if (!is_queued(queued, id)) { /////////////////////////////////////
+                //     printf("Job with ID %d not found.\n", id); 
+                // } else {
                     // if queued -> stop it
-                    stop_queued(queued, id);
-                    printf("job_%02d removed\n", id);
-                }
-            } else {
-                // else - job is runnning -> stop it
-                stop_running(running, id);
-                printf("job_%02d terminated\n", id);
-            }
+                //     stop_queued(queued, id);
+                //     printf("job_%02d removed\n", id);
+                // }
+            // } else {
+            //     // else - job is runnning -> stop it
+            //     stop_running(running, id);
+            //     printf("job_%02d terminated\n", id);
+            // }
         }
 
         if (strcmp(operation, "poll") == 0) {
@@ -235,58 +235,6 @@ void exit_do(int fd) {
     return;
 }
 
-// Συνάρτηση για να ελέγξει αν μια εργασία τρέχει
-bool is_running(Queue* running, int id) {
-    Node* current = running->front;
-    while (current != NULL) {
-        if (atoi(current->jobID) == id && current->status == 1) {
-            return true;
-        }
-        current = current->next;
-    }
-    return false;
-}
-/*Αυτή η συνάρτηση ελέγχει αν ένα job με το συγκεκριμένο id τρέχει αυτή τη στιγμή. Ξεκινά από τον πρώτο κόμβο της running ουράς και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 1 (που σημαίνει ότι τρέχει). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
-
-// Συνάρτηση για να ελέγξει αν μια εργασία είναι στην ουρά αναμονής
-bool is_queued(Queue* queued, int id) {
-    Node* current = queued->front;
-    while (current != NULL) {
-        if (atoi(current->jobID) == id && current->status == 0) {
-            return true;
-        }
-        current = current->next;
-    }
-    return false;
-}
-/*Αυτή η συνάρτηση ελέγχει αν ένα job με το δοσμένο id είναι στην ουρά αναμονής (queued). Ξεκινά από τον πρώτο κόμβο της ουράς αναμονής και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 0 (που σημαίνει ότι είναι στην ουρά αναμονής). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
-
-// Συνάρτηση για να σταματήσει μια εργασία που είναι στην ουρά αναμονής
-bool stop_queued(Queue* queued, int id) {
-    Node* current = queued->front;
-    while (current != NULL) {
-        if (atoi(current->jobID) == id && current->status == 0) {
-            current->status = -1; // Σταματάει την εργασία στην ουρά αναμονής
-            return true;
-        }
-        current = current->next;
-    }
-    return false;
-}
-
-// Συνάρτηση για να σταματήσει μια εργασία που τρέχει
-bool stop_running(Queue* running, int id) {
-    Node* current = running->front;
-    while (current != NULL) {
-        if (atoi(current->jobID) == id && current->status == 1) {
-            current->status = -1; // Σταματάει την εργασία που τρέχει
-            kill(current->job, SIGKILL); //////// ????????????
-            return true;
-        }
-        current = current->next;
-    }
-    return false;
-}
 
 void update_running_jobs() {
     int running_jobs = queueSize(running);
@@ -295,30 +243,82 @@ void update_running_jobs() {
         int i;
         int remaining_capacity = Concurrency - running_jobs; // Υπολογισμός του ανεκτέλεστου χώρου στον πίνακα των τρεχουσών εργασιών
 
-        for (i = 0; i < remaining_capacity; i++) {
-            if (!isEmpty(queued)) {
-                // Αν υπάρχουν εργασίες στην ουρά αναμονής, μεταφέρουμε τις πρώτες (concurrency - running) εργασίες στη λίστα των τρεχουσών εργασιών
-                Node* job_node = queued->front;
-                char* jobID = job_node->jobID;
-                char* job = job_node->job;
-                // strcpy(job, job_node->job);
-                int queuePosition = job_node->queuePosition;
+        // for (i = 0; i < remaining_capacity; i++) {
+        //     if (!isEmpty(queued)) {
+        //         // Αν υπάρχουν εργασίες στην ουρά αναμονής, μεταφέρουμε τις πρώτες (concurrency - running) εργασίες στη λίστα των τρεχουσών εργασιών
+        //         Node* job_node = queued->front;
+        //         char* jobID = job_node->jobID;
+        //         char* job = job_node->job;
+        //         // strcpy(job, job_node->job);
+        //         int queuePosition = job_node->queuePosition;
                 
-                // Αφαίρεση της εργασίας από την ουρά αναμονής
-                remove_node(queued);
+        //         // Αφαίρεση της εργασίας από την ουρά αναμονής
+        //         delete(queued);
 
-                // Εισαγωγή της εργασίας στη λίστα των τρεχουσών εργασιών
-                add(running, jobID, job, queuePosition); // ????
+        //         // Εισαγωγή της εργασίας στη λίστα των τρεχουσών εργασιών
+        //         add(running, jobID, job, queuePosition); // ????
 
-                // Εκτέλεση της εργασίας
-                issueJob(job, running, queued, atoi(jobID), 0);
-            } else {
-                // Αν η ουρά αναμονής είναι άδεια, δεν υπάρχουν περισσότερες εργασίες προς εκτέλεση
-                break;
-            }
-        }
+        //         // Εκτέλεση της εργασίας
+        //         issueJob(job, running, queued, atoi(jobID), 0);
+        //     } else {
+        //         // Αν η ουρά αναμονής είναι άδεια, δεν υπάρχουν περισσότερες εργασίες προς εκτέλεση
+        //         break;
+        //     }
+        // }
         // else, if due to small Concurrency i can't run the command add it to pending queue to
 		// be executed later ?????????????
     }
 }
 
+// // Συνάρτηση για να ελέγξει αν μια εργασία τρέχει
+// bool is_running(Queue running, int id) {
+//     Node* current = running;
+//     while (current != NULL) {
+//         if (current->jobID == id && current->status == 1) {
+//             return true;
+//         }
+//         current = current->next;
+//     }
+//     return false;
+// }
+// /*Αυτή η συνάρτηση ελέγχει αν ένα job με το συγκεκριμένο id τρέχει αυτή τη στιγμή. Ξεκινά από τον πρώτο κόμβο της running ουράς και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 1 (που σημαίνει ότι τρέχει). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
+
+// // Συνάρτηση για να ελέγξει αν μια εργασία είναι στην ουρά αναμονής
+// bool is_queued(Queue* queued, int id) {
+//     Node* current = queued->front;
+//     while (current != NULL) {
+//         if (atoi(current->jobID) == id && current->status == 0) {
+//             return true;
+//         }
+//         current = current->next;
+//     }
+//     return false;
+// }
+// /*Αυτή η συνάρτηση ελέγχει αν ένα job με το δοσμένο id είναι στην ουρά αναμονής (queued). Ξεκινά από τον πρώτο κόμβο της ουράς αναμονής και ελέγχει αν το jobID του κόμβου είναι ίσο με το δοσμένο id και αν η κατάσταση της εργασίας είναι 0 (που σημαίνει ότι είναι στην ουρά αναμονής). Αν βρεθεί μια τέτοια εργασία, η συνάρτηση επιστρέφει true, διαφορετικά επιστρέφει false.*/
+
+// // Συνάρτηση για να σταματήσει μια εργασία που είναι στην ουρά αναμονής
+// bool stop_queued(Queue* queued, int id) {
+//     Node* current = queued->front;
+//     while (current != NULL) {
+//         if (atoi(current->jobID) == id && current->status == 0) {
+//             current->status = -1; // Σταματάει την εργασία στην ουρά αναμονής
+//             return true;
+//         }
+//         current = current->next;
+//     }
+//     return false;
+// }
+
+// // Συνάρτηση για να σταματήσει μια εργασία που τρέχει
+// bool stop_running(Queue* running, int id) {
+//     Node* current = running->front;
+//     while (current != NULL) {
+//         if (atoi(current->jobID) == id && current->status == 1) {
+//             current->status = -1; // Σταματάει την εργασία που τρέχει
+//             kill(current->job, SIGKILL); //////// ????????????
+//             return true;
+//         }
+//         current = current->next;
+//     }
+//     return false;
+// }
