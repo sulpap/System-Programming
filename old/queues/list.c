@@ -87,3 +87,34 @@ int counter(Queue queue) {
     }
     return count;
 }
+
+int main() {
+    Queue queue = NULL; // Initialize an empty queue
+
+    // Add some jobs to the queue
+    for (int i=0; i<16; i++){ //15 jobs
+        add(&queue, "Job", i);
+    }
+
+    // Print the queue
+    printf("Initial queue:\n");
+    print_queue(queue);
+
+    // Remove a job by ID
+    remove_job(&queue, 2);
+    printf("\nQueue after removing Job 2:\n");
+    print_queue(queue);
+
+    // Get the job ID of the first job in the queue
+    if (!isEmpty(queue)) {
+        int firstJobID = get_first_job(queue);
+        printf("\nJob ID of the first job in the queue: %d\n", firstJobID);
+    } else {
+        printf("\nQueue is empty.\n");
+    }
+
+    // Get the number of jobs in the queue
+    printf("\nNumber of jobs in the queue: %d\n", counter(queue));
+
+    return 0;
+}

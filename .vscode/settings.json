@@ -7,6 +7,7 @@
         "signal.h": "c",
         "myheaders.h": "c",
         "stdlib.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "job_executor_server_file.h": "c"
     }
 }
