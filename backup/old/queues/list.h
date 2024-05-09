@@ -7,10 +7,10 @@ struct qNode {
     Queue next;
 };
 
-// Συναρτήσεις για την διαχείριση της ουράς
 void add(Queue *queue, char *job, int jobID);
-void remove_job(Queue *, int);
+Queue dequeue(Queue *queue);
+void remove_job(Queue *queue, int jobID);
 bool isEmpty(Queue queue);
 int get_first_job(Queue queue);
-void print_queue(Queue queue);
+void print_queue(Queue queue, char **arr);
 int counter(Queue queue);

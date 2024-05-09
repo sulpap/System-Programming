@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 // adds a job to the queue
+// TODO: rename to +enqueue+
 void add(Queue *queue, char *job, int jobID) {
     // allocate the memory needed
     Queue newNode = (Queue)malloc(sizeof(struct qNode));
@@ -11,8 +12,9 @@ void add(Queue *queue, char *job, int jobID) {
         exit(1);
     }
 
+    newNode->job = malloc(strlen(job) + 1);
     // assign the values
-    newNode->job = job;
+    strcpy(newNode->job, job);
     newNode->jobID = jobID;
     newNode->next = NULL;
 
@@ -29,6 +31,18 @@ void add(Queue *queue, char *job, int jobID) {
 }
 
 // delete job from list , if it exists
+Queue dequeue(Queue *queue) {
+    if (isEmpty(*queue)){
+        return NULL;
+    }
+
+    Queue result = *queue;
+    *queue = (*queue)->next;
+
+    return result;
+}
+
+// delete certain job from list , if it exists
 void remove_job(Queue *queue, int jobID) {
     Queue current_queue = *queue;
     Queue prev_queue = NULL;
@@ -61,20 +75,44 @@ int get_first_job(Queue queue){
         return queue->jobID;
     } else {
         return -1;
-    }    
+    }
 }
 
 // prints all jobs in the queue
-void print_queue(Queue queue) {
+
+// void print_queue(Queue queue) {
+//     if (isEmpty(queue)) {
+//         printf(" Queue is empty.\n");
+//         return;
+//     }
+//     Queue current = queue;
+//     while (current != NULL) {
+//         printf(" QUEUE: Job ID: %d, Job: %s\n", current->jobID, current->job);
+//         current = current->next;
+//     }
+//     return;
+// }
+
+void print_queue(Queue queue, char **arr) {
     if (isEmpty(queue)) {
         printf("Queue is empty.\n");
         return;
     }
     Queue current = queue;
+    int i = 0;
+	char buf[500];
+
     while (current != NULL) {
-        printf("Job ID: %d, Job: %s\n", current->jobID, current->job);
+        sprintf(buf, "job_%d,%s,%d", queue->jobID, queue->job, i);
+        //printf("QUEUE: Job ID: %d, Job: %s\n", current->jobID, current->job);
+        arr[i] = malloc(sizeof(char)*(strlen(buf)+1));
+        strcpy(arr[i], buf);
+        i++;
         current = current->next;
     }
+    arr[i] = NULL;
+    
+    return;
 }
 
 // counter for jobs in the queue
@@ -88,8 +126,10 @@ int counter(Queue queue) {
     return count;
 }
 
+
 int main() {
     Queue queue = NULL; // Initialize an empty queue
+    char* arr[64];
 
     // Add some jobs to the queue
     for (int i=0; i<16; i++){ //15 jobs
@@ -98,12 +138,12 @@ int main() {
 
     // Print the queue
     printf("Initial queue:\n");
-    print_queue(queue);
+    print_queue(queue,arr);
 
     // Remove a job by ID
     remove_job(&queue, 2);
     printf("\nQueue after removing Job 2:\n");
-    print_queue(queue);
+    print_queue(queue,arr);
 
     // Get the job ID of the first job in the queue
     if (!isEmpty(queue)) {
