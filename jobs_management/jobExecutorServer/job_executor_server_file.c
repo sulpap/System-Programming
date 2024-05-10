@@ -10,6 +10,7 @@ void create_job_executor_server_file() {
 
   FILE *file;
 
+  // open the executor file to write
   file = fopen(job_executor_server_file_name, "w");
 
   if (file == NULL) {
@@ -17,6 +18,7 @@ void create_job_executor_server_file() {
     exit(1);
   }
 
+  // get and write the pid of the current process
   pid_t pid = getpid();
   fprintf(file, "%d", pid);
 

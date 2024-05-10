@@ -5,6 +5,7 @@
 
 #define MAXIMUM_NUMBER_OF_TOKENS 1000
 
+// separates input in order to execute
 void execute_command(char *input_buffer) {
   const char delimiter[2] = " ";
   char *token = NULL;
@@ -12,7 +13,7 @@ void execute_command(char *input_buffer) {
 
   token = strtok(input_buffer, delimiter);
 
-  // Walk through other tokens
+  // Walk through other tokens and save every one in a cell of the array tokens
   int i = 0;
   while (token != NULL && i < MAXIMUM_NUMBER_OF_TOKENS) {
       tokens[i] = token;

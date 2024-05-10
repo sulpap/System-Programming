@@ -1,6 +1,7 @@
 #include <string.h>
 #include "validate_command.h"
 
+// checks compatibility
 int validate_command(const char *command) {
   return (
     strcmp("issu", command) == 0 ||

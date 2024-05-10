@@ -5,7 +5,6 @@
 #include "defines.h"
 
 // adds a job to the queue
-// TODO: rename to +enqueue+
 void enqueue(Queue *queue, char *job, int jobID) {
     // allocate the memory needed
     Queue newNode = (Queue)malloc(sizeof(struct qNode));
@@ -31,7 +30,7 @@ void enqueue(Queue *queue, char *job, int jobID) {
     }
 }
 
-// delete job from list , if it exists
+// delete oldest job from queue , if it exists
 Queue dequeue(Queue *queue) {
     if (isEmpty(*queue)){
         return NULL;
@@ -43,7 +42,7 @@ Queue dequeue(Queue *queue) {
     return result;
 }
 
-// delete certain job from list , if it exists
+// delete certain job from queue , if it exists
 void remove_job(Queue *queue, int jobID) {
     Queue current_queue = *queue;
     Queue prev_queue = NULL;
@@ -80,7 +79,6 @@ int get_first_job(Queue queue){
 }
 
 // prints all jobs in the queue
-
 void print_queue(Queue queue) {
     if (isEmpty(queue)) {
         printf("%s Queue is empty.\n", LOG_PREFIX);
@@ -96,6 +94,8 @@ void print_queue(Queue queue) {
     return;
 }
 
+
+// gets and prints queue 
 void get_print_queue(Queue queue, char **arr) {
     if (isEmpty(queue)) {
         printf("Queue is empty.\n");
@@ -117,7 +117,6 @@ void get_print_queue(Queue queue, char **arr) {
     
     return;
 }
-
 
 
 // counter for jobs in the queue

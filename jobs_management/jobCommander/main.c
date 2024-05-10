@@ -41,20 +41,25 @@ int main(int argc, char *argv[]) {
 
   const char *command = argv[1];
 
+  // prints received command
   printf("%s: Command = %s\n", LOG_PREFIX, command);
 
+  // checks compatibility
   if (!validate_command(command)) {
     fprintf(stderr, "%s", correct_syntax());
     return 1;
   }
 
+  // if the server doesn't exist, creates it
   if (!job_executor_server_running()) {
     start_job_executor_server();
   }
 
+  // create the pipes
   create_output_pipe();
   create_input_pipe();
 
+  // open them
   int fd_output = -1;
 
   fd_output = open_output_pipe();
@@ -63,6 +68,7 @@ int main(int argc, char *argv[]) {
 
   fd_input = open_input_pipe();
 
+  // save the argument passed from input into the message array
   char message[COMMANDS_BUFFER];
   memset(message, 0, sizeof(message));
   for (int i = 1; i < argc; i++) {
@@ -72,10 +78,12 @@ int main(int argc, char *argv[]) {
     strcat(message, argv[i]);
   }
 
+  // write it in the pipe for executor to see
   write(fd_output, message, strlen(message) + 1);
 
   close(fd_output);
 
+  // read the response from the executor and print it
   if (strcmp(message, "exit") == 0 ||
       (strlen(message) >= 8 && strncmp(message, "issueJob", 8) == 0) ||
       (strlen(message) >= 4 && strncmp(message, "stop", 4) == 0) ||

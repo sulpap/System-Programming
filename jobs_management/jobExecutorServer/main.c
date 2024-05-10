@@ -20,7 +20,7 @@
 int size = 0;
 pid_t *running = NULL;
 Queue queue = NULL;
-// Queue running_queue = NULL; // !!! αυτο θελει άλλη δομη queue που αποθηκευει και pid??
+Queue running_queue = NULL; // αλλη δομη queue που αποθηκευει και pid??
 bool remove_pid(pid_t pid);
 void create_child_process(Queue *queue);
 
@@ -63,6 +63,7 @@ bool remove_pid(pid_t pid) {
     int found = 0;
     for(int i = 0; i < size; i++) {
         if (running[i] == pid) {
+            // remove_job(&running_queue, jobId);
             // Shift elements to the left to overwrite the deleted element
             memmove(&running[i], &running[i + 1], (size - i - 1) * sizeof(int));
             // decrease the size of the array by 1
@@ -106,6 +107,9 @@ void create_child_process(Queue *queue) {
 
       execute_command(job->job);
   } else {
+      int jobId = get_first_job(&queue);
+      enqueue(&running_queue, job->job, jobId);
+
       size++;
       running = (pid_t *)realloc(running, size * sizeof(pid_t));
       if (running == NULL) {
@@ -120,12 +124,6 @@ void create_child_process(Queue *queue) {
         printf("%d ", running[t]);
       }
       printf("\n");
-      
-      // int jobId = get_first_job(&queue);
-      // enqueue(&running_queue, buf, jobId);
-
-      // printf("\n\nrunning queue:\n:");
-      // print_queue(running_queue);
   }
 }
 
@@ -196,14 +194,18 @@ int main(int argc, char *argv[]) {
       } else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0) {
         
         remove_first_word(input_buffer);
+        char tmp;
+        sscanf(tmp, "job_%d", &jobId);
 
-        int parameter = atoi(input_buffer);
+        // int parameter = atoi(input_buffer);
         bool flag = false;
 
         for(int i = 0; i < size; i++){
           // if the job is running, stop it and send message to commander
           
-          if (running[i] == parameter) {
+          // if (running[i] == parameter) {
+          if (running_queue->jobID == jobId) {
+            remove_job(&running_queue, jobId);
             remove_pid(running[i]);
             sprintf(responses_buffer, "job_%d terminated", jobId);
             respond_to_commander(fd_output, responses_buffer);
