@@ -21,6 +21,8 @@ int size = 0;
 pid_t *running = NULL;
 Queue queue = NULL;
 Queue running_queue = NULL; // αλλη δομη queue που αποθηκευει και pid??
+int Concurrency = 1; // default
+
 bool remove_pid(pid_t pid);
 void create_child_process(Queue *queue);
 
@@ -48,6 +50,7 @@ void handle_child_finished_signal(int signum) {
     if ( remove_pid(pid) == false ){
       break;
     }
+    // remove_job() --> id?
     printf("%s: child process with pid %d finished\n", LOG_PREFIX, pid);
 
     create_child_process(&queue);
@@ -149,7 +152,6 @@ int main(int argc, char *argv[]) {
 
   int jobId = 0;
   int queuePosition = 0;
-  int Concurrency = 1; // default
 
   install_child_finish_handler();
 
@@ -194,17 +196,20 @@ int main(int argc, char *argv[]) {
       } else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0) {
         
         remove_first_word(input_buffer);
-        char tmp;
-        sscanf(tmp, "job_%d", &jobId);
+
+        sscanf(input_buffer, "job_%d", &jobId);
 
         // int parameter = atoi(input_buffer);
         bool flag = false;
-
-        for(int i = 0; i < size; i++){
+        int i=0;
+        //for(int i = 0; i < size; i++){
+        while(running_queue != NULL) {
           // if the job is running, stop it and send message to commander
           
           // if (running[i] == parameter) {
-          if (running_queue->jobID == jobId) {
+          if (running_queue->jobID == jobId) { // doesn't enter loop
+            printf("\n%s id of job we are about to stop: %d\n", LOG_PREFIX, jobId);
+
             remove_job(&running_queue, jobId);
             remove_pid(running[i]);
             sprintf(responses_buffer, "job_%d terminated", jobId);
@@ -212,6 +217,7 @@ int main(int argc, char *argv[]) {
             flag = true; // true: we found it
             break;
           }
+          i++;
         }
 
         //  if it's queued, remove it and send message to commander
