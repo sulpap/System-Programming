@@ -61,7 +61,7 @@ void remove_job(Queue *queue, int jobID) {
         current_queue = current_queue->next;
     }
 
-    printf("Job with ID %d not found in the queue.\n", jobID);
+    printf("%s Job with ID %d not found in the queue.\n", LOG_PREFIX, jobID);
 }
 
 // true: queue is empty, false: it's not
@@ -95,7 +95,7 @@ void print_queue(Queue queue) {
 }
 
 
-// gets and prints queue 
+// gets and prints queue
 void get_print_queue(Queue queue, char **arr) {
     if (isEmpty(queue)) {
         printf("Queue is empty.\n");
@@ -107,14 +107,13 @@ void get_print_queue(Queue queue, char **arr) {
 
     while (current != NULL) {
         sprintf(buf, "job_%d,%s,%d", queue->jobID, queue->job, i);
-        //printf("QUEUE: Job ID: %d, Job: %s\n", current->jobID, current->job);
         arr[i] = malloc(sizeof(char)*(strlen(buf)+1));
         strcpy(arr[i], buf);
         i++;
         current = current->next;
     }
     arr[i] = NULL;
-    
+
     return;
 }
 
