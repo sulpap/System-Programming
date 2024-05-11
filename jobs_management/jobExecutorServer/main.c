@@ -259,8 +259,16 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(input_buffer, "queued")) {
           // get_print_queue(queue, &responses_buffer);
           // respond_to_commander(fd_output, responses_buffer);
+          memset(responses_buffer, 0, sizeof(responses_buffer));
+          for (int i = 0; i < counter(queue); i++ ) {
+            char tripletMessage[1000];
 
+            memset(tripletMessage, 0, sizeof(tripletMessage));
+            sprintf(tripletMessage, "job_%d,%s,%d\n", queue->jobID, queue->job, i);
 
+            strcat(responses_buffer, tripletMessage);
+          }
+          respond_to_commander(fd_output, responses_buffer);
 
         }
 
