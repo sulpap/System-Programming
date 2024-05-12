@@ -8,6 +8,10 @@
         "myheaders.h": "c",
         "stdlib.h": "c",
         "common.h": "c",
-        "job_executor_server_file.h": "c"
+        "job_executor_server_file.h": "c",
+        "remove_first_word.h": "c",
+        "execute_command.h": "c",
+        "string.h": "c",
+        "queue.h": "c"
     }
 }

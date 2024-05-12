@@ -30,7 +30,7 @@ void enqueue(Queue *queue, char *job, int jobID) {
     }
 }
 
-// delete oldest job from queue , if it exists
+// delete oldest job from queue , if it exists, and return it
 Queue dequeue(Queue *queue) {
     if (isEmpty(*queue)){
         return NULL;
@@ -43,7 +43,7 @@ Queue dequeue(Queue *queue) {
 }
 
 // delete certain job from queue , if it exists
-void remove_job(Queue *queue, int jobID) {
+void remove_job_from_queue(Queue *queue, int jobID) {
     Queue current_queue = *queue;
     Queue prev_queue = NULL;
 
@@ -78,6 +78,15 @@ int get_first_job(Queue queue){
     }
 }
 
+bool find_in_queue(Queue queue, int jobIdToStop) {
+    bool found = false;
+    while (!found && queue != NULL) {
+        if (queue->jobID == jobIdToStop) {
+            found = true;
+        }
+    }
+}
+
 // prints all jobs in the queue
 void print_queue(Queue queue) {
     if (isEmpty(queue)) {
@@ -93,30 +102,6 @@ void print_queue(Queue queue) {
     }
     return;
 }
-
-
-// gets and prints queue
-void get_print_queue(Queue queue, char **arr) {
-    if (isEmpty(queue)) {
-        printf("Queue is empty.\n");
-        return;
-    }
-    Queue current = queue;
-    int i = 0;
-	char buf[500];
-
-    while (current != NULL) {
-        sprintf(buf, "job_%d,%s,%d", queue->jobID, queue->job, i);
-        arr[i] = malloc(sizeof(char)*(strlen(buf)+1));
-        strcpy(arr[i], buf);
-        i++;
-        current = current->next;
-    }
-    arr[i] = NULL;
-
-    return;
-}
-
 
 // counter for jobs in the queue
 int counter(Queue queue) {
