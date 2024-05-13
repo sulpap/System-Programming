@@ -60,7 +60,7 @@ void handle_child_finished_signal(int signum) {
       break;
     }
 
-    printf("%s: child process with pid %d finished\n", LOG_PREFIX, pid);
+    printf("%s: Child process with pid %d finished.\n", LOG_PREFIX, pid);
 
     create_child_process(&queue);
   }
@@ -102,7 +102,7 @@ bool remove_running_pid(pid_t pid) {
             printf("%s Memory allocation failed!\n", LOG_PREFIX);
             exit(1);
           }
-          printf("%s Job pid = %d removed from running jobs successfully.\n", LOG_PREFIX, pid);
+          printf("%s Job with pid = %d removed from running jobs successfully.\n", LOG_PREFIX, pid);
           found = 1;
           break;
       }
@@ -119,28 +119,24 @@ void create_child_process(Queue *queue) {
   int queuePosition = counter(*queue);
   Queue job = dequeue(queue); //removing job from queue to be executed
 
-  printf("%s Printing the queue...\n", LOG_PREFIX);
-  print_queue(*queue);
-
   if (job == NULL) {
-    printf("%s no job in the queue to run\n", LOG_PREFIX);
+    printf("%s No job in the queue to run.\n", LOG_PREFIX);
     return;
   }
 
-  printf("%s JOB got out of the queue ready to run %s\n", LOG_PREFIX, job->job);
+  printf("%s Job got out of the queue ready to run %s\n", LOG_PREFIX, job->job);
 
   // fork one child process to execute the command
   pid_t pid = fork();
   if (pid == 0) {
       // child process
-
       execute_command(job->job);
   } else {
       numberOfRunningJobs++;
 
       add_running_job(pid, queuePosition, job->job);
 
-      printf("%s RUNNING pid array: ", LOG_PREFIX);
+      printf("%s Now running: ", LOG_PREFIX);
       for(int t = 0; t < numberOfRunningJobs; t++){
         printf("pid = %d jobId = %d ", running[t].pid, running[t].jobId);
       }
@@ -187,8 +183,23 @@ int main(int argc, char *argv[]) {
       printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
 
       if (strcmp(input_buffer, "exit") == 0) {
+
+        // if there are any running jobs
+        if (numberOfRunningJobs > 0) {
+          for (int i = 0; i < numberOfRunningJobs; i++) {
+            printf("%s: Terminating job pid = %d\n", LOG_PREFIX, running[i].pid);
+            // terminate them
+            kill(running[i].pid, SIGTERM);
+          }
+        }
+
+        // set variables for possible later use
+        numberOfRunningJobs = 0;
+        jobId = 0;
+
         respond_to_commander(fd_output, "jobExecutorServer terminated");
         break;
+
       } else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0) {
         jobId++;
         
@@ -202,10 +213,10 @@ int main(int argc, char *argv[]) {
         // parent process
         // clear buffer, save the triplet, send it to commander
         memset(responses_buffer, 0, sizeof(responses_buffer));
-        sprintf(responses_buffer, "job_%d,%s,%d", jobId, input_buffer, queuePosition);
+        sprintf(responses_buffer, "<job_%d,%s,%d>", jobId, input_buffer, queuePosition);
         respond_to_commander(fd_output, responses_buffer);
 
-        printf("%s Printing the queue...\n", LOG_PREFIX);
+        printf("%s Adding job in the queue...\n", LOG_PREFIX);
         print_queue(queue);
 
         // if we can, call the function that creates the process
@@ -344,6 +355,7 @@ int main(int argc, char *argv[]) {
   // clearance
 
   free(running);
+  free(queue);
 
   close(fd_input);
   close(fd_output);
