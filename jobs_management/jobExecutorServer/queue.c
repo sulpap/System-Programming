@@ -49,7 +49,7 @@ void remove_job_from_queue(Queue *queue, int jobID) {
 
     while (current_queue != NULL) {
         if (current_queue->jobID == jobID) {
-            if (prev_queue == NULL) {
+            if (prev_queue == NULL) { 
                 *queue = current_queue->next;
             } else {
                 prev_queue->next = current_queue->next;
@@ -78,6 +78,7 @@ int get_first_job(Queue queue){
     }
 }
 
+// if the job is in the queue, return true. if it's not return false.
 bool find_in_queue(Queue queue, int jobIdToStop) {
     bool found = false;
     while (!found && queue != NULL) {
@@ -85,6 +86,7 @@ bool find_in_queue(Queue queue, int jobIdToStop) {
             found = true;
         }
     }
+    return found;
 }
 
 // prints all jobs in the queue

@@ -4,7 +4,7 @@
 // checks compatibility
 int validate_command(const char *command) {
   return (
-    strcmp("issu", command) == 0 ||
+    //strcmp("issu", command) == 0 ||
     strcmp("issueJob", command) == 0 ||
     strcmp("setConcurrency", command) == 0 ||
     strcmp("stop", command) == 0 ||

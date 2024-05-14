@@ -31,18 +31,6 @@ int job_executor_server_running() {
   const char *filename = "jobExecutorServer.txt";
 
   if (access(filename, F_OK) != -1) {
-    // pid_t pid = get_job_executor_server_pid(filename);
-
-    // if (kill(pid, 0) == 0) {
-    //   // process is running
-    //   return 1;
-    // } else {
-    //   // process is not running. PID file is stale. I will delete it
-    //   remove(filename);
-
-    //   return 0;
-    // }
-
     // file has been found and it has a valid PID
     return 1;
   } else {
@@ -65,15 +53,16 @@ void start_job_executor_server() {
   }
 
   if (pid == 0) {
-    // Child process
-    // Execute a new program
+    // child process
+    // execute a new program
     execlp("./jobExecutorServer", "jobExecutorServer", NULL);
 
-    // If execlp returns it means that there was an error
-    perror("exec");
+    // if execlp returns it means that there was an error
+    perror("execlp");
 
     exit(1);
   } else {
+    // parent process
     printf("%s: I have started the executor\n", LOG_PREFIX);
   }
 

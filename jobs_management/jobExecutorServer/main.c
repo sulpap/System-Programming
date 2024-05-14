@@ -55,6 +55,7 @@ void handle_child_finished_signal(int signum) {
   pid_t pid;
   int status;
 
+  // if it's finished, we remove it from the running jobs
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
     if ( remove_running_pid(pid) == false ){
       break;
@@ -167,6 +168,7 @@ int main(int argc, char *argv[]) {
   int fd_output = -1;
   fd_output = open_output_pipe();
 
+  // will be used to determine the position in the queue
   int queuePosition = 0;
 
   // handler for terminated jobs
@@ -187,7 +189,7 @@ int main(int argc, char *argv[]) {
         // if there are any running jobs
         if (numberOfRunningJobs > 0) {
           for (int i = 0; i < numberOfRunningJobs; i++) {
-            printf("%s: Terminating job pid = %d\n", LOG_PREFIX, running[i].pid);
+            printf("%s: Terminating job pid = %d...\n", LOG_PREFIX, running[i].pid);
             // terminate them
             kill(running[i].pid, SIGTERM);
           }
@@ -197,7 +199,7 @@ int main(int argc, char *argv[]) {
         numberOfRunningJobs = 0;
         jobId = 0;
 
-        respond_to_commander(fd_output, "jobExecutorServer terminated");
+        respond_to_commander(fd_output, "jobExecutorServer terminated.");
         break;
 
       } else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0) {
@@ -219,7 +221,7 @@ int main(int argc, char *argv[]) {
         printf("%s Adding job in the queue...\n", LOG_PREFIX);
         print_queue(queue);
 
-        // if we can, call the function that creates the process
+        // if we can, we execute it
         if (numberOfRunningJobs < Concurrency) {
           create_child_process(&queue);
         }
@@ -237,6 +239,11 @@ int main(int argc, char *argv[]) {
         // save the jobId from the input
         int jobIdToStop = 0;
         sscanf(input_buffer, "job_%d", &jobIdToStop);
+
+        if (jobIdToStop <= 0) {
+          printf("%s Invalid jobID -- starts from 1 and up -- ex: stop job_3\n", LOG_PREFIX);
+          exit(1);
+        }
         printf("%s jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
 
         // see if it is running
@@ -255,17 +262,17 @@ int main(int argc, char *argv[]) {
           int pid = running[i - 1].pid;
 
           // terminate it
-          printf("%s sending SIGKILL to process with pid %d\n", LOG_PREFIX, pid);
+          printf("%s sending SIGKILL to process with pid %d...\n", LOG_PREFIX, pid);
           kill(pid, SIGTERM);
 
           // clear buffer and respond to the commander
           memset(responses_buffer, 0, sizeof(responses_buffer));
-          sprintf(responses_buffer, "job_%d terminated", jobIdToStop);
+          sprintf(responses_buffer, "job_%d terminated.", jobIdToStop);
           respond_to_commander(fd_output, responses_buffer);
 
         } else { // if it's not running
 
-          printf("%s jobIdToStop not found in running\n", LOG_PREFIX);
+          printf("%s jobIdToStop not found in running.\n", LOG_PREFIX);
 
           // we need to check whether it is in the queue (it should be)
           found = find_in_queue(queue, jobIdToStop);
@@ -277,8 +284,11 @@ int main(int argc, char *argv[]) {
             
             // clear buffer and respond to the commander
             memset(responses_buffer, 0, sizeof(responses_buffer));
-            sprintf(responses_buffer, "job_%d removed", jobIdToStop);
+            sprintf(responses_buffer, "job_%d removed.", jobIdToStop);
             respond_to_commander(fd_output, responses_buffer);
+          } else {
+            printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
+            exit(1);
           }
 
         }
