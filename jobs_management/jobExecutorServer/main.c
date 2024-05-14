@@ -130,11 +130,13 @@ void create_child_process(Queue *queue) {
   // fork one child process to execute the command
   pid_t pid = fork();
   if (pid == 0) {
-      // child process
+      // child process executes the command
       execute_command(job->job);
   } else {
+      // parent increases number of running jobs
       numberOfRunningJobs++;
-
+      
+      // and adds the job to the array
       add_running_job(pid, queuePosition, job->job);
 
       printf("%s Now running: ", LOG_PREFIX);
