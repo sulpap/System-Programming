@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
           int pid = running[i - 1].pid;
 
           // terminate it
-          printf("%s sending SIGKILL to process with pid %d...\n", LOG_PREFIX, pid);
+          printf("%s Sending SIGTERM to process with pid %d...\n", LOG_PREFIX, pid);
           kill(pid, SIGTERM);
 
           // clear buffer and respond to the commander
