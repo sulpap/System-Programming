@@ -27,4 +27,4 @@ exit 0
 
 #!/bin/bash
 
-# jobCommander version -- Run make and paste the txt files you want to test multijob with in the bin. Then run ./multijob.sh (outside bin)
+# jobCommander version -- Run make and paste the txt files you want to test multijob with in the bin. Then run ./multijob.sh in jobs_management

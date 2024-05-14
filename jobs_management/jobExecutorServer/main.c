@@ -188,7 +188,6 @@ int main(int argc, char *argv[]) {
 
         // if there are any running jobs
         if (numberOfRunningJobs > 0) {
-          printf("\nnumber of running jobs: %d\n\n", numberOfRunningJobs);
           for (int i = 0; i < numberOfRunningJobs; i++) {
             printf("%s: Terminating job pid = %d...\n", LOG_PREFIX, running[i].pid);
             // terminate them
