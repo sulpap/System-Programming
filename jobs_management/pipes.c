@@ -6,8 +6,9 @@
 
 void create_pipe(char *pipe) {
   if (access(pipe, F_OK) != -1) {
-    // pipe already exists
+    // pipe already exists. We don't create it.
   } else {
+    // pipe does not exist. We create it.
     mkfifo(pipe, 0666);
   }
 }

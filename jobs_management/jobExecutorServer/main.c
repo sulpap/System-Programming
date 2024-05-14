@@ -17,7 +17,8 @@
 #include "../pipes.h"
 #include "queue.h"
 
-typedef struct runningNode {
+typedef struct runningNode
+{
   pid_t pid;
   int jobId;
   int queuePosition;
@@ -35,29 +36,36 @@ int jobId = 0;
 bool remove_running_pid(pid_t pid);
 void create_child_process(Queue *queue);
 
-void create_input_pipe() {
+void create_input_pipe()
+{
   create_pipe(COMMANDS_PIPE);
 }
 
-void create_output_pipe() {
+void create_output_pipe()
+{
   create_pipe(RESPONSES_PIPE);
 }
 
-int open_input_pipe() {
+int open_input_pipe()
+{
   return open_pipe(COMMANDS_PIPE, O_RDONLY);
 }
 
-int open_output_pipe() {
+int open_output_pipe()
+{
   return open_pipe(RESPONSES_PIPE, O_WRONLY);
 }
 
-void handle_child_finished_signal(int signum) {
+void handle_child_finished_signal(int signum)
+{
   pid_t pid;
   int status;
 
   // if it's finished, we remove it from the running jobs
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    if ( remove_running_pid(pid) == false ){
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+  {
+    if (remove_running_pid(pid) == false)
+    {
       break;
     }
 
@@ -68,14 +76,17 @@ void handle_child_finished_signal(int signum) {
   return;
 }
 
-void install_child_finish_handler() {
+void install_child_finish_handler()
+{
   signal(SIGCHLD, handle_child_finished_signal);
 }
 
-RunningNode *add_running_job(pid_t pid, int queuePosition, char *command) {
+RunningNode *add_running_job(pid_t pid, int queuePosition, char *command)
+{
   // reallocate memory to expand the array
   running = (RunningNode *)realloc(running, numberOfRunningJobs * sizeof(RunningNode));
-  if (running == NULL) {
+  if (running == NULL)
+  {
     printf("%s Memory allocation failed!\n", LOG_PREFIX);
     exit(1);
   }
@@ -89,26 +100,31 @@ RunningNode *add_running_job(pid_t pid, int queuePosition, char *command) {
   return running;
 }
 
-bool remove_running_pid(pid_t pid) {
+bool remove_running_pid(pid_t pid)
+{
   int found = 0;
-  for(int i = 0; i < numberOfRunningJobs; i++) {
-      if (running[i].pid == pid) {
-          // shift elements to the left to overwrite the deleted element
-          memmove(&running[i], &running[i + 1], (numberOfRunningJobs - i - 1) * sizeof(RunningNode));
-          // decrease the size of the array by 1
-          numberOfRunningJobs--;
-          // reallocate the memory to shrink the array
-          running = (RunningNode *)realloc(running, numberOfRunningJobs * sizeof(RunningNode));
-          if (running == NULL && numberOfRunningJobs > 0) {
-            printf("%s Memory allocation failed!\n", LOG_PREFIX);
-            exit(1);
-          }
-          printf("%s Job with pid = %d removed from running jobs successfully.\n", LOG_PREFIX, pid);
-          found = 1;
-          break;
+  for (int i = 0; i < numberOfRunningJobs; i++)
+  {
+    if (running[i].pid == pid)
+    {
+      // shift elements to the left to overwrite the deleted element
+      memmove(&running[i], &running[i + 1], (numberOfRunningJobs - i - 1) * sizeof(RunningNode));
+      // decrease the size of the array by 1
+      numberOfRunningJobs--;
+      // reallocate the memory to shrink the array
+      running = (RunningNode *)realloc(running, numberOfRunningJobs * sizeof(RunningNode));
+      if (running == NULL && numberOfRunningJobs > 0)
+      {
+        printf("%s Memory allocation failed!\n", LOG_PREFIX);
+        exit(1);
       }
+      printf("%s Job with pid = %d removed from running jobs successfully.\n", LOG_PREFIX, pid);
+      found = 1;
+      break;
+    }
   }
-  if (!found) {
+  if (!found)
+  {
     printf("%s Job %d not found in the running jobs array.\n", LOG_PREFIX, pid);
     return false;
   }
@@ -116,11 +132,13 @@ bool remove_running_pid(pid_t pid) {
   return true;
 }
 
-void create_child_process(Queue *queue) {
+void create_child_process(Queue *queue)
+{
   int queuePosition = counter(*queue);
-  Queue job = dequeue(queue); //removing job from queue to be executed
+  Queue job = dequeue(queue); // removing job from queue to be executed
 
-  if (job == NULL) {
+  if (job == NULL)
+  {
     printf("%s No job in the queue to run.\n", LOG_PREFIX);
     return;
   }
@@ -129,25 +147,30 @@ void create_child_process(Queue *queue) {
 
   // fork one child process to execute the command
   pid_t pid = fork();
-  if (pid == 0) {
-      // child process executes the command
-      execute_command(job->job);
-  } else {
-      // parent increases number of running jobs
-      numberOfRunningJobs++;
-      
-      // and adds the job to the array
-      add_running_job(pid, queuePosition, job->job);
+  if (pid == 0)
+  {
+    // child process executes the command
+    execute_command(job->job);
+  }
+  else
+  {
+    // parent increases number of running jobs
+    numberOfRunningJobs++;
 
-      printf("%s Now running: ", LOG_PREFIX);
-      for(int t = 0; t < numberOfRunningJobs; t++){
-        printf("pid = %d jobId = %d ", running[t].pid, running[t].jobId);
-      }
-      printf("\n");
+    // and adds the job to the array
+    add_running_job(pid, queuePosition, job->job);
+
+    printf("%s Now running: ", LOG_PREFIX);
+    for (int t = 0; t < numberOfRunningJobs; t++)
+    {
+      printf("pid = %d jobId = %d ", running[t].pid, running[t].jobId);
+    }
+    printf("\n");
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   create_job_executor_server_file();
 
   // create the pipes
@@ -176,37 +199,41 @@ int main(int argc, char *argv[]) {
   // handler for terminated jobs
   install_child_finish_handler();
 
-  while(1) {
+  while (1)
+  {
     // we have something to read from the pipe
     read(fd_input, input_buffer, sizeof(input_buffer));
-    
-    if (strcmp(input_buffer, "") == 0) {
+
+    if (strcmp(input_buffer, "") == 0)
+    {
       sleep(1); // sleep for 1 second
-    } else {
+    }
+    else
+    {
 
       printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
 
-      if (strcmp(input_buffer, "exit") == 0) {
+      if (strcmp(input_buffer, "exit") == 0)
+      {
 
         // if there are any running jobs
-        if (numberOfRunningJobs > 0) {
-          for (int i = 0; i < numberOfRunningJobs; i++) {
+        if (numberOfRunningJobs > 0)
+        {
+          for (int i = 0; i < numberOfRunningJobs; i++)
+          {
             printf("%s: Terminating job pid = %d...\n", LOG_PREFIX, running[i].pid);
             // terminate them
             kill(running[i].pid, SIGTERM);
           }
         }
 
-        // set variables for possible later use
-        numberOfRunningJobs = 0;
-        jobId = 0;
-
         respond_to_commander(fd_output, "jobExecutorServer terminated.");
         break;
-
-      } else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0) {
+      }
+      else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
+      {
         jobId++;
-        
+
         // remove the command (issueJob, in this case)
         remove_first_word(input_buffer);
 
@@ -224,17 +251,20 @@ int main(int argc, char *argv[]) {
         print_queue(queue);
 
         // if we can, we execute it
-        if (numberOfRunningJobs < Concurrency) {
+        if (numberOfRunningJobs < Concurrency)
+        {
           create_child_process(&queue);
         }
-
-      } else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0) {
+      }
+      else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
+      {
 
         remove_first_word(input_buffer);
 
         Concurrency = atoi(input_buffer); // doesn't need to return anything to jobCommander
-
-      } else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0) {
+      }
+      else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
+      {
 
         remove_first_word(input_buffer);
 
@@ -242,24 +272,23 @@ int main(int argc, char *argv[]) {
         int jobIdToStop = 0;
         sscanf(input_buffer, "job_%d", &jobIdToStop);
 
-        if (jobIdToStop <= 0) {
-          printf("%s Invalid jobID -- starts from 1 and up -- ex: stop job_3\n", LOG_PREFIX);
-          exit(1);
-        }
         printf("%s jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
 
         // see if it is running
         bool found = false;
         int i = 0;
-        while(!found && i < numberOfRunningJobs) {
-          if (running[i].jobId == jobIdToStop) {
+        while (!found && i < numberOfRunningJobs)
+        {
+          if (running[i].jobId == jobIdToStop)
+          {
             found = true;
           }
           i++;
         }
 
         // if it's running
-        if (found) {
+        if (found)
+        {
 
           int pid = running[i - 1].pid;
 
@@ -271,8 +300,9 @@ int main(int argc, char *argv[]) {
           memset(responses_buffer, 0, sizeof(responses_buffer));
           sprintf(responses_buffer, "job_%d terminated.", jobIdToStop);
           respond_to_commander(fd_output, responses_buffer);
-
-        } else { // if it's not running
+        }
+        else
+        { // if it's not running
 
           printf("%s jobIdToStop not found in running.\n", LOG_PREFIX);
 
@@ -280,38 +310,49 @@ int main(int argc, char *argv[]) {
           found = find_in_queue(queue, jobIdToStop);
 
           // if it's in the queue
-          if (found) {
+          if (found)
+          {
             // remove it
             remove_job_from_queue(&queue, jobIdToStop);
-            
+
             // clear buffer and respond to the commander
             memset(responses_buffer, 0, sizeof(responses_buffer));
             sprintf(responses_buffer, "job_%d removed.", jobIdToStop);
             respond_to_commander(fd_output, responses_buffer);
-          } else {
-            printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
-            exit(1);
           }
+          else
+          {
+            printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
 
+            memset(responses_buffer, 0, sizeof(responses_buffer));
+            sprintf(responses_buffer, "job_%d not found.", jobIdToStop);
+            respond_to_commander(fd_output, responses_buffer);
+          }
         }
-
-      } else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0) {
+      }
+      else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
+      {
 
         remove_first_word(input_buffer);
 
-        if (strcmp(input_buffer, "running") == 0) {
-          
+        if (strcmp(input_buffer, "running") == 0)
+        {
+
           // clear buffer
           memset(responses_buffer, 0, sizeof(responses_buffer));
 
           // check if there are no running jobs
-          if (running == NULL) {
+          if (running == NULL)
+          {
             strcpy(responses_buffer, "No running jobs");
-          } else {
-            
-            for(int i = 0; i < numberOfRunningJobs; i++) {
+          }
+          else
+          {
+
+            for (int i = 0; i < numberOfRunningJobs; i++)
+            {
               char tripletMessage[1000];
-              
+
               // save the triplet of every job
               memset(tripletMessage, 0, sizeof(tripletMessage));
               sprintf(tripletMessage, "job_%d,%s,%d\n", running[i].jobId, running[i].command, running[i].queuePosition);
@@ -319,23 +360,26 @@ int main(int argc, char *argv[]) {
               // add it to the buffer
               strcat(responses_buffer, tripletMessage);
             }
-            
           }
           // send response (the buffer with all the triplets) to the commander
           respond_to_commander(fd_output, responses_buffer);
-
-        } else if (strcmp(input_buffer, "queued") == 0) {
+        }
+        else if (strcmp(input_buffer, "queued") == 0)
+        {
           memset(responses_buffer, 0, sizeof(responses_buffer));
-          
+
           // check if there are no queued jobs
-          if (queue == NULL) {
+          if (queue == NULL)
+          {
             strcpy(responses_buffer, "No queued jobs");
-            
-          } else {
+          }
+          else
+          {
 
             Queue current = queue;
             int index = 0;
-            while (current != NULL) {
+            while (current != NULL)
+            {
               char tripletMessage[1000];
 
               // save the triplet of every job
@@ -349,13 +393,10 @@ int main(int argc, char *argv[]) {
               current = current->next;
               index++;
             }
-         
           }
           // send response (the buffer with all the triplets) to the commander
           respond_to_commander(fd_output, responses_buffer);
-
         }
-
       }
       // clear input buffer
       memset(input_buffer, 0, sizeof(input_buffer));

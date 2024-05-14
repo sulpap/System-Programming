@@ -19,7 +19,7 @@ OBJDIR_JOB_EXECUTOR_SERVER = $(OBJDIR)/jobExecutorServer
 SRCFILES_JOB_EXECUTOR_SERVER = $(wildcard $(SRCDIR_JOB_EXECUTOR_SERVER)/*.c)
 OBJFILES_JOB_EXECUTOR_SERVER = $(patsubst $(SRCDIR_JOB_EXECUTOR_SERVER)/%.c,$(OBJDIR_JOB_EXECUTOR_SERVER)/%.o,$(SRCFILES_JOB_EXECUTOR_SERVER))
 
-all: $(BINDIR) $(BINDIR)/jobExecutorServer $(BINDIR)/jobCommander
+all: $(BINDIR) $(BINDIR)/jobExecutorServer $(BINDIR)/jobCommander $(BINDIR)/progDelay
 
 $(BINDIR)/jobExecutorServer: $(OBJFILES_JOB_EXECUTOR_SERVER) $(OBJFILES_COMMON) | $(BINDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJFILES_JOB_EXECUTOR_SERVER) $(OBJFILES_COMMON)
@@ -35,6 +35,9 @@ $(OBJDIR_JOB_COMMANDER)/%.o: $(SRCDIR_JOB_COMMANDER)/%.c | $(OBJDIR_JOB_COMMANDE
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BINDIR)/progDelay: progDelay/progDelay.c
+	$(CC) $(CCFLAGS) -o $(BINDIR)/progDelay progDelay/progDelay.c
 
 # Creating directories
 # ---------------------
