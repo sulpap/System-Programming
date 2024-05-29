@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,37 +15,92 @@
 #include "defines.h"
 #include "../pipes.h"
 
-void create_output_pipe() {
-  create_pipe(COMMANDS_PIPE);
+#define h_addr h_addr_list[0]
+
+void perror_exit(char *message)
+{
+  printf("%s", LOG_PREFIX);
+  perror(message);
+  exit(EXIT_FAILURE);
 }
 
-void create_input_pipe() {
-  create_pipe(RESPONSES_PIPE);
+int create_socket() {
+  int sock;
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    perror_exit("socket");
+  }
+  return sock;
 }
 
-int open_output_pipe() {
-  return open_pipe(COMMANDS_PIPE, O_WRONLY);
+struct hostent* get_server_address(const char *hostname) {
+  struct hostent *rem;
+  if ((rem = gethostbyname(hostname)) == NULL) 
+  {
+    printf("%s", LOG_PREFIX);
+    herror("gethostbyname");
+    exit(1);
+  }
+  return rem;
 }
 
-int open_input_pipe() {
-  return open_pipe(RESPONSES_PIPE, O_RDONLY);
+void connect_to_server(int sock, struct sockaddr_in server) {
+  struct sockaddr *serverptr = (struct sockaddr*)&server;
+
+  if (connect(sock, serverptr, sizeof(server)) < 0) 
+  {
+    perror_exit("connect");
+  }
 }
 
-void read_response_from_executor(int fd_input, const char *message) {
-  read(fd_input, (void *)message, COMMANDS_BUFFER);
+void save_arg(char *message, int argc, char *argv[]) {
+  memset(message, 0, sizeof(char) * COMMANDS_BUFFER);
+  for (int i = 3; i < argc; i++) {
+    if (i > 3) { // add space before all arguments except the first 3
+      strcat(message, " ");
+    }
+    strcat(message, argv[i]);
+  }
+}
 
-  return;
+// void read_response_from_executor(int sock, const char *message) 
+// {
+//   if (read(sock, (void *)message, COMMANDS_BUFFER) < 0) {
+//     perror_exit("read");
+//   }
+  
+//   return;
+// }
+
+void read_response_from_executor(int sock, char *message) {
+    ssize_t bytes_read = read(sock, (void *)message, COMMANDS_BUFFER);
+    if (bytes_read < 0) {
+        perror("read");
+        exit(EXIT_FAILURE);
+    }
+    message[bytes_read] = '\0';  // null terminator
 }
 
 int main(int argc, char *argv[]) {
-  if (argc <= 1) {
+  if (argc <= 3) {
     fprintf(stderr, "%s", correct_syntax());
     return 1;
   }
 
-  const char *command = argv[1];
+  int port = atoi(argv[2]);
+  const char *command = argv[3];
 
-  // prints received command
+  int sock = create_socket();
+  struct hostent *rem = get_server_address(argv[1]);
+
+  struct sockaddr_in server;
+  
+  server.sin_family = AF_INET;
+  memcpy(&server.sin_addr, rem->h_addr, rem->h_length);
+  server.sin_port = htons(port);
+
+  connect_to_server(sock, server);
+
+  printf("%s Connecting to %s port %d\n", LOG_PREFIX, argv[1], port);
   printf("%s: Command = %s\n", LOG_PREFIX, command);
 
   // checks compatibility
@@ -50,49 +109,27 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // if the server doesn't exist, creates it
-  if (!job_executor_server_running()) {
-    start_job_executor_server();
-  }
-
-  // create the pipes
-  create_output_pipe();
-  create_input_pipe();
-
-  // open them
-  int fd_output = -1;
-
-  fd_output = open_output_pipe();
-
-  int fd_input = -1;
-
-  fd_input = open_input_pipe();
-
   // save the argument passed from input into the message array
   char message[COMMANDS_BUFFER];
-  memset(message, 0, sizeof(message));
-  for (int i = 1; i < argc; i++) {
-    if (i >= 2) {
-      strcat(message, " ");
-    }
-    strcat(message, argv[i]);
+  save_arg(message, argc, argv);
+
+  // write it in the socket for executor to see
+  if (write(sock, message, strlen(message)) < 0) {
+   perror_exit("write");
   }
-
-  // write it in the pipe for executor to see
-  write(fd_output, message, strlen(message) + 1);
-
-  close(fd_output);
 
   // read the response from the executor and print it
   if (strcmp(message, "exit") == 0 ||
       (strlen(message) >= 8 && strncmp(message, "issueJob", 8) == 0) ||
       (strlen(message) >= 4 && strncmp(message, "stop", 4) == 0) ||
       (strlen(message) >= 4 && strncmp(message, "poll", 4) == 0)) {
-    read_response_from_executor(fd_input, message);
+    // receive response from executor
+    read_response_from_executor(sock, message);
     printf("%s: %s\n", LOG_PREFIX, message);
   }
 
-  close(fd_input);
+  // close the socket
+  close(sock);
 
   return 0;
 }

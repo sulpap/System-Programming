@@ -12,6 +12,9 @@
         "remove_first_word.h": "c",
         "execute_command.h": "c",
         "string.h": "c",
-        "queue.h": "c"
+        "queue.h": "c",
+        "stat.h": "c",
+        "respond_to_commander.h": "c",
+        "stdio.h": "c"
     }
 }

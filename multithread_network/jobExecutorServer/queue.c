@@ -96,10 +96,8 @@ void print_queue(Queue queue) {
         return;
     }
     Queue current = queue;
-    int queuePosition = 0;
     while (current != NULL) {
-        printf("%s QUEUE: <job_%d, %s, %d>\n", LOG_PREFIX, current->jobID, current->job, queuePosition);
-        queuePosition++;
+        printf("%s QUEUE: <job_%d, %s>\n", LOG_PREFIX, current->jobID, current->job);
         current = current->next;
     }
     return;
