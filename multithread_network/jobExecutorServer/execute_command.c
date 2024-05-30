@@ -16,9 +16,9 @@ void execute_command(char *input_buffer) {
   // Walk through other tokens and save every one in a cell of the array tokens
   int i = 0;
   while (token != NULL && i < MAXIMUM_NUMBER_OF_TOKENS) {
-      tokens[i] = token;
-      token = strtok(NULL, " ");
-      i++;
+    tokens[i] = token;
+    token = strtok(NULL, " ");
+    i++;
   }
 
   tokens[i] = NULL;

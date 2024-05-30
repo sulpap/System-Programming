@@ -2,6 +2,7 @@ CC = gcc
 # -Wall for all warnings
 # -Wextra for even more warnings
 CFLAGS = -Wall -Wextra
+LDFLAGS = -lnsl
 SRCDIR = .
 OBJDIR = obj
 BINDIR = bin
@@ -22,14 +23,14 @@ OBJFILES_JOB_EXECUTOR_SERVER = $(patsubst $(SRCDIR_JOB_EXECUTOR_SERVER)/%.c,$(OB
 all: $(BINDIR) $(BINDIR)/jobExecutorServer $(BINDIR)/jobCommander $(BINDIR)/progDelay
 
 $(BINDIR)/jobExecutorServer: $(OBJFILES_JOB_EXECUTOR_SERVER) $(OBJFILES_COMMON) | $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $(OBJFILES_JOB_EXECUTOR_SERVER) $(OBJFILES_COMMON)
+	$(CC) $(CFLAGS) -o $@ $(OBJFILES_JOB_EXECUTOR_SERVER) $(OBJFILES_COMMON) $(LDFLAGS)
 # help
 
 $(OBJDIR_JOB_EXECUTOR_SERVER)/%.o: $(SRCDIR_JOB_EXECUTOR_SERVER)/%.c | $(OBJDIR_JOB_EXECUTOR_SERVER)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BINDIR)/jobCommander: $(OBJFILES_JOB_COMMANDER) $(OBJFILES_COMMON) | $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $(OBJFILES_JOB_COMMANDER) $(OBJFILES_COMMON)
+	$(CC) $(CFLAGS) -o $@ $(OBJFILES_JOB_COMMANDER) $(OBJFILES_COMMON) $(LDFLAGS)
 
 $(OBJDIR_JOB_COMMANDER)/%.o: $(SRCDIR_JOB_COMMANDER)/%.c | $(OBJDIR_JOB_COMMANDER)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -38,7 +39,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BINDIR)/progDelay: progDelay/progDelay.c
-	$(CC) $(CCFLAGS) -o $(BINDIR)/progDelay progDelay/progDelay.c
+	$(CC) $(CCFLAGS) -o $(BINDIR)/progDelay progDelay/progDelay.c $(LDFLAGS)
 
 # Creating directories
 # ---------------------

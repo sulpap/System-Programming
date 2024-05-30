@@ -13,3 +13,5 @@ void respond_to_commander(int sock, const void *message) {
 }
 
 // write((sock, message, sizeof(message) + 1));
+
+// send(sock, message, strlen(message), 0);

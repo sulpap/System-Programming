@@ -15,13 +15,20 @@
 #include "job_executor_server_file.h"
 #include "respond_to_commander.h"
 #include "../common.h"
+#include "correct_syntax.h"
 #include "defines.h"
 #include "queue.h"
 #include "remove_first_word.h"
 #include "execute_command.h"
-#include "../pipes.h"
 
 Queue queue = NULL;
+
+// typedef struct
+// {
+//   int jobId;
+//   char command[COMMANDS_BUFFER];
+//   int clientSocket;
+// } Threads_args;
 
 int Concurrency = 1; // default
 int numberOfRunningJobs = 0;
@@ -57,15 +64,7 @@ void initialize_server(int argc, char *argv[]) {
   struct sockaddr_in server;
   struct sockaddr *serverptr=(struct sockaddr *)&server;
 
-  // if (argc != 2) {
-  //   printf("%s Please give port number\n", LOG_PREFIX);          // needed??????
-  //   exit(1);
-  // }
   port = atoi(argv[1]);
-
-  // bufferSize = atoi(argv[2]);
-  // set_buffer_size(bufferSize);
-  // printf("buffer size: %d", COMMANDS_BUFFER); // debug
 
   // create socket
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -141,20 +140,132 @@ void create_child_process(Queue *queue)
   }
 }
 
+void handle_issue_job(char *input_buffer, char *responses_buffer) 
+{
+  jobId++;
+
+  // remove the command (issueJob, in this case)
+  remove_first_word(input_buffer);
+
+  // put the job in the queue and save its position in it
+  enqueue(&queue, input_buffer, jobId);
+
+  // parent process
+  // clear buffer, save the triplet, send it to commander
+  memset(responses_buffer, 0, sizeof(responses_buffer));
+  sprintf(responses_buffer, "<job_%d,%s>", jobId, input_buffer);
+  respond_to_commander(newsock, responses_buffer);
+
+  printf("%s Adding job in the queue...\n", LOG_PREFIX);
+  print_queue(queue);
+
+  // if we can, we execute it
+  if (numberOfRunningJobs < Concurrency)
+  {
+    create_child_process(&queue);
+  }
+}
+
+void handle_set_concurrency(char* input_buffer, char *responses_buffer) 
+{
+  remove_first_word(input_buffer);
+
+  Concurrency = atoi(input_buffer);
+
+  memset(responses_buffer, 0, sizeof(responses_buffer));
+  sprintf(responses_buffer, "CONCURRENCY SET AT %d", Concurrency);
+
+  respond_to_commander(newsock, responses_buffer);
+}
+
+void handle_stop_job(char* input_buffer, char *responses_buffer)
+{
+  remove_first_word(input_buffer);
+
+  // save the jobId from the input
+  int jobIdToStop = 0;
+  sscanf(input_buffer, "job_%d", &jobIdToStop);
+
+  printf("%s jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
+
+  // see if it is in the queue
+  bool found = false;
+  found = find_in_queue(queue, jobIdToStop);
+
+  if (found)
+  {
+    // remove it
+    remove_job_from_queue(&queue, jobIdToStop);
+
+    // clear buffer and respond to the commander
+    memset(responses_buffer, 0, sizeof(responses_buffer));
+    sprintf(responses_buffer, "JOB %d REMOVED", jobIdToStop);
+    respond_to_commander(sock, responses_buffer);
+  }
+  else
+  { // if it's not found
+    printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
+
+    memset(responses_buffer, 0, sizeof(responses_buffer));
+    sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
+    respond_to_commander(sock, responses_buffer);
+  
+  }
+}
+
+void handle_poll_jobs(char* responses_buffer)
+{
+  memset(responses_buffer, 0, sizeof(responses_buffer));
+
+  // check if there are no queued jobs
+  if (queue == NULL)
+  {
+    strcpy(responses_buffer, "No queued jobs");
+    printf("i run\n");
+    printf("%s", responses_buffer);
+  }
+  else
+  {
+
+    Queue current = queue;
+    while (current != NULL)
+    {
+      char msg[1000];
+
+      memset(msg, 0, sizeof(msg));
+      sprintf(msg, "job_%d,%s\n", current->jobID, current->job);
+
+      strcat(responses_buffer, msg);
+
+      current = current->next;
+    }
+  }
+  printf("%s", responses_buffer);
+  // send the tuples to the commander
+  respond_to_commander(sock, responses_buffer);
+
+}
+
+
 int main(int argc, char *argv[])
 {
-  create_job_executor_server_file();
+  create_job_executor_server_file(); //////////////////////
 
-  // int port; // sock, newsock, bufferSize;
-  // struct sockaddr_in server, 
+  if (argc != 4) {
+    fprintf(stderr, "%s", correct_syntax());
+    return 1;
+  }
+
   struct sockaddr_in client;
   socklen_t clientlen;
 
-  // struct sockaddr *serverptr=(struct sockaddr *)&server;
   struct sockaddr *clientptr=(struct sockaddr *)&client;
   struct hostent *rem;
 
   initialize_server(argc, argv);
+
+  int bufferSize = atoi(argv[2]);
+  int threadPoolSize = atoi(argv[3]);
 
   // set the buffers
   char input_buffer[COMMANDS_BUFFER];
@@ -192,108 +303,24 @@ int main(int argc, char *argv[])
         close(newsock);
         break;
       }
-      else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0) // giati exei keno??????????????????
+      else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
       {
-        jobId++;
+        handle_issue_job(input_buffer,responses_buffer);
 
-        // remove the command (issueJob, in this case)
-        remove_first_word(input_buffer);
-
-        // put the job in the queue and save its position in it
-        enqueue(&queue, input_buffer, jobId);
-
-        // parent process
-        // clear buffer, save the triplet, send it to commander
-        memset(responses_buffer, 0, sizeof(responses_buffer));
-        sprintf(responses_buffer, "<job_%d,%s>", jobId, input_buffer);
-        respond_to_commander(newsock, responses_buffer);
-
-        printf("%s Adding job in the queue...\n", LOG_PREFIX);
-        print_queue(queue);
-
-        // if we can, we execute it
-        if (numberOfRunningJobs < Concurrency)
-        {
-          create_child_process(&queue);
-        }
       }
       else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
       {
-
-        remove_first_word(input_buffer);
-
-        Concurrency = atoi(input_buffer);
-
-        sprintf(responses_buffer, "CONCURRENCY SET AT %d", Concurrency);
-
-        respond_to_commander(newsock, responses_buffer);
+        handle_set_concurrency(input_buffer, responses_buffer);
 
       }
       else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
       {
-
-        remove_first_word(input_buffer);
-
-        // save the jobId from the input
-        int jobIdToStop = 0;
-        sscanf(input_buffer, "job_%d", &jobIdToStop);
-
-        printf("%s jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
-
-        // see if it is in the queue
-        bool found = false;
-        found = find_in_queue(queue, jobIdToStop);
-
-        if (found)
-        {
-          // remove it
-          remove_job_from_queue(&queue, jobIdToStop);
-
-          // clear buffer and respond to the commander
-          memset(responses_buffer, 0, sizeof(responses_buffer));
-          sprintf(responses_buffer, "JOB %d REMOVED", jobIdToStop);
-          respond_to_commander(sock, responses_buffer);
-        }
-        else
-        { // if it's not found
-          printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
-
-          memset(responses_buffer, 0, sizeof(responses_buffer));
-          sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
-          respond_to_commander(sock, responses_buffer);
+        handle_stop_job(input_buffer, responses_buffer);
         
-        }
       }
       else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
       {
-
-        remove_first_word(input_buffer);
-
-        memset(responses_buffer, 0, sizeof(responses_buffer));
-
-        // check if there are no queued jobs
-        if (queue == NULL)
-        {
-          strcpy(responses_buffer, "No queued jobs");
-        }
-        else
-        {
-
-          Queue current = queue;
-          while (current != NULL)
-          {
-            char msg[1000];
-
-            memset(msg, 0, sizeof(msg));
-            sprintf(msg, "job_%d,%s\n", current->jobID, current->job);
-
-            strcat(responses_buffer, msg);
-
-            current = current->next;
-          }
-        }
-        // send response (the buffer with all the triplets) to the commander
-        respond_to_commander(sock, responses_buffer);
+        handle_poll_jobs(responses_buffer);
         
       }
       // clear input buffer
