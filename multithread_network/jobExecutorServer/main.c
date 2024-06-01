@@ -32,7 +32,7 @@ Queue queue = NULL;
 // } Threads_args;
 
 typedef struct {
-  int newsock;
+  int clientSocket;
   char input_buffer[COMMANDS_BUFFER];
   char responses_buffer[COMMANDS_BUFFER];
 } Controller_args;
@@ -42,7 +42,7 @@ int numberOfRunningJobs = 0;
 int jobId = 0;
 
 int sock=-5; 
-int newsock=-5;
+int clientSocket=-5;
 
 void create_child_process(Queue *queue);
 
@@ -138,13 +138,13 @@ void create_child_process(Queue *queue)
   {
     // child process executes the command
     execute_command(job->job);
-    close(newsock);
+    close(clientSocket);
   }
   else if (pid > 0)
   {
     // parent process
     numberOfRunningJobs++;
-    close(newsock); // parent closes socket to client 
+    close(clientSocket); // parent closes socket to client 
   }
   else
   {
@@ -166,7 +166,7 @@ void handle_issue_job(char *input_buffer, char *responses_buffer)
   // clear buffer, save the triplet, send it to commander
   memset(responses_buffer, 0, sizeof(responses_buffer));
   sprintf(responses_buffer, "<job_%d,%s>", jobId, input_buffer);
-  respond_to_commander(newsock, responses_buffer);
+  respond_to_commander(clientSocket, responses_buffer);
 
   printf("%s Adding job in the queue...\n", LOG_PREFIX);
   print_queue(queue);
@@ -186,8 +186,7 @@ void handle_set_concurrency(char* input_buffer, char *responses_buffer)
 
   memset(responses_buffer, 0, sizeof(responses_buffer));
   sprintf(responses_buffer, "CONCURRENCY SET AT %d", concurrencyLevel);
-
-  respond_to_commander(newsock, responses_buffer);
+  respond_to_commander(clientSocket, responses_buffer);
 }
 
 void handle_stop_job(char* input_buffer, char *responses_buffer)
@@ -197,7 +196,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
   // save the jobId from the input
   int jobIdToStop = atoi(input_buffer);
   if (!(jobId >= 0)) {
-    respond_to_commander(newsock, "Invalid jobID. Must be greater than or equal to 0");
+    respond_to_commander(clientSocket, "Invalid jobID. Must be greater than or equal to 0");
     return;
   }
 
@@ -215,7 +214,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
     // clear buffer and respond to the commander
     memset(responses_buffer, 0, sizeof(responses_buffer));
     sprintf(responses_buffer, "JOB %d REMOVED", jobIdToStop);
-    respond_to_commander(newsock, responses_buffer);
+    respond_to_commander(clientSocket, responses_buffer);
   }
   else
   { // if it's not found
@@ -223,7 +222,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
 
     memset(responses_buffer, 0, sizeof(responses_buffer));
     sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
-    respond_to_commander(newsock, responses_buffer);
+    respond_to_commander(clientSocket, responses_buffer);
   }
 }
 
@@ -252,74 +251,81 @@ void handle_poll_jobs(char* responses_buffer)
     }
   }
   // send the tuples to the commander
-  respond_to_commander(newsock, responses_buffer);
+  respond_to_commander(clientSocket, responses_buffer);
 
 }
 
 void* controller(void* args)
 {
+  printf("this is controller thread\n");
+ 
   Controller_args* controller_args = (Controller_args*) args;
-  int newsock = controller_args->newsock;
+  int clientSocket = controller_args->clientSocket;
   char* input_buffer = controller_args->input_buffer;
   char* responses_buffer = controller_args->responses_buffer;
-  // we have something to read from the socket
-  if (read(newsock, input_buffer, sizeof(input_buffer)) < 0) {
-    perror_exit("read");
-  }
 
-  // sanitize the input buffer to remove any harmful characters
-  sanitize(input_buffer);
+  //printf("clientSocket: %d, input_buffer: %s, responses_buffer: %s\n", clientSocket, controller_args->input_buffer, controller_args->responses_buffer);
 
-  if (strcmp(input_buffer, "") == 0)
-  {
-    sleep(1); // fix this
-  }
-  else
-  {
+  free(controller_args);
 
-    printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
+  // // we have something to read from the socket
+  // if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
+  //   perror_exit("read");
+  // }
 
-    if (strcmp(input_buffer, "exit") == 0)
-    {
-      // wait for the jobs to finish and return their responses to the client
-      // clear the queue
-      // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
-      respond_to_commander(newsock, "SERVER TERMINATED");
+  // // sanitize the input buffer to remove any harmful characters
+  // sanitize(input_buffer);
 
-      close(newsock);
-      free(queue);
-      close(sock);
-      delete_job_executor_server_file(); 
-      free(controller_args);
+  // if (strcmp(input_buffer, "") == 0)
+  // {
+  //   sleep(1); // fix this
+  // }
+  // else
+  // {
 
-      return;
-    }
-    else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
-    {
-      handle_issue_job(input_buffer,responses_buffer);
+  //   printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
 
-    }
-    else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
-    {
-      handle_set_concurrency(input_buffer, responses_buffer);
+  //   if (strcmp(input_buffer, "exit") == 0)
+  //   {
+  //     // wait for the jobs to finish and return their responses to the client
+  //     // clear the queue
+  //     // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
+  //     respond_to_commander(clientSocket, "SERVER TERMINATED");
 
-    }
-    else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
-    {
-      handle_stop_job(input_buffer, responses_buffer);
+  //     close(clientSocket);
+  //     free(queue);
+  //     close(sock);
+  //     delete_job_executor_server_file(); 
+  //     free(controller_args);
+
+  //     return;
+  //   }
+  //   else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
+  //   {
+  //     handle_issue_job(input_buffer,responses_buffer);
+
+  //   }
+  //   else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
+  //   {
+  //     handle_set_concurrency(input_buffer, responses_buffer);
+
+  //   }
+  //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
+  //   {
+  //     handle_stop_job(input_buffer, responses_buffer);
       
-    }
-    else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
-    {
-      handle_poll_jobs(responses_buffer);
+  //   }
+  //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
+  //   {
+  //     handle_poll_jobs(responses_buffer);
       
-    }
-    // clear input buffer
-    memset(input_buffer, 0, sizeof(input_buffer));
+  //   }
+  //   // clear input buffer
+  //   memset(input_buffer, 0, sizeof(input_buffer));
 
-    // close the connection socket
-    close(newsock);
-  }
+  //   // close the connection socket
+  //   close(clientSocket);
+  // }
 }
 
 int main(int argc, char *argv[])
@@ -374,7 +380,7 @@ int main(int argc, char *argv[])
   while (1)
   {
     clientlen = sizeof(client);
-    if ((newsock = accept(sock, clientptr, &clientlen)) < 0) {
+    if ((clientSocket = accept(sock, clientptr, &clientlen)) < 0) {
       perror_exit("accept");
     }
 
@@ -382,7 +388,7 @@ int main(int argc, char *argv[])
 
     // Allocate and initialize the controller args
     Controller_args* controller_args = (Controller_args*) malloc(sizeof(Controller_args));
-    controller_args->newsock = newsock;
+    controller_args->clientSocket = clientSocket;
     memset(controller_args->input_buffer, 0, sizeof(controller_args->input_buffer));
     memset(controller_args->responses_buffer, 0, sizeof(controller_args->responses_buffer));
 
@@ -399,7 +405,7 @@ int main(int argc, char *argv[])
 
     
     // we have something to read from the socket
-    if (read(newsock, input_buffer, sizeof(input_buffer)) < 0) {
+    if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
       perror_exit("read");
     }
 
@@ -417,8 +423,8 @@ int main(int argc, char *argv[])
         // wait for the jobs to finish and return their responses to the client
         // clear the queue
         // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
-        respond_to_commander(newsock, "SERVER TERMINATED");
-        close(newsock);
+        respond_to_commander(clientSocket, "SERVER TERMINATED");
+        close(clientSocket);
         break;
       }
       else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
@@ -445,7 +451,7 @@ int main(int argc, char *argv[])
       memset(input_buffer, 0, sizeof(input_buffer));
 
       // close the connection socket
-      close(newsock);
+      close(clientSocket);
     }
 
     if (strcmp(input_buffer, "exit") == 0) {
@@ -456,18 +462,15 @@ int main(int argc, char *argv[])
 
   printf("%s: end looping\n", LOG_PREFIX);
 
-  // for (i = 0; i < threadPoolSize; i++)                      // dinei seg
-  // {
-  //   pthread_detach(worker_thread[i]); 
-  // }
+ //detach workers?
 
   // clearance
 
-  // free(queue);
+  free(queue);
 
-  // close(sock);
+  close(sock);
 
-  // delete_job_executor_server_file(); // needs??????????????
+  delete_job_executor_server_file(); // needs??????????????
 
   printf("%s: Bye!\n", LOG_PREFIX);
 
