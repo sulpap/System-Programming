@@ -255,78 +255,143 @@ void handle_poll_jobs(char* responses_buffer)
 
 }
 
+// void* controller(void* args)
+// {
+//   printf("this is controller thread\n");
+ 
+//   Controller_args* controller_args = (Controller_args*) args;
+//   int clientSocket = controller_args->clientSocket;
+//   // char* input_buffer = controller_args->input_buffer;
+//   // char* responses_buffer = controller_args->responses_buffer;
+
+//   //printf("clientSocket: %d, input_buffer: %s, responses_buffer: %s\n", clientSocket, controller_args->input_buffer, controller_args->responses_buffer);
+
+//   free(controller_args);
+
+//   // we have something to read from the socket
+//   if (read(clientSocket, controller_args->input_buffer, sizeof(controller_args->input_buffer)) < 0) {
+//     perror_exit("read");
+//   }
+//   printf("clientSocket: %d, input_buffer: %s, responses_buffer: %s\n", clientSocket, controller_args->input_buffer, controller_args->responses_buffer);
+
+//   // // sanitize the input buffer to remove any harmful characters
+//   // sanitize(input_buffer);
+
+//   // if (strcmp(input_buffer, "") == 0)
+//   // {
+//   //   sleep(1); // fix this
+//   // }
+//   // else
+//   // {
+
+//   //   printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
+
+//   //   if (strcmp(input_buffer, "exit") == 0)
+//   //   {
+//   //     // wait for the jobs to finish and return their responses to the client
+//   //     // clear the queue
+//   //     // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
+//   //     respond_to_commander(clientSocket, "SERVER TERMINATED");
+
+//   //     close(clientSocket);
+//   //     free(queue);
+//   //     close(sock);
+//   //     delete_job_executor_server_file(); 
+//   //     free(controller_args);
+
+//   //     return;
+//   //   }
+//   //   else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
+//   //   {
+//   //     handle_issue_job(input_buffer,responses_buffer);
+
+//   //   }
+//   //   else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
+//   //   {
+//   //     handle_set_concurrency(input_buffer, responses_buffer);
+
+//   //   }
+//   //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
+//   //   {
+//   //     handle_stop_job(input_buffer, responses_buffer);
+      
+//   //   }
+//   //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
+//   //   {
+//   //     handle_poll_jobs(responses_buffer);
+      
+//   //   }
+//   //   // clear input buffer
+//   //   memset(input_buffer, 0, sizeof(input_buffer));
+
+//   //   // close the connection socket
+//   //   close(clientSocket);
+//   // }
+// }
+
 void* controller(void* args)
 {
   printf("this is controller thread\n");
- 
+
   Controller_args* controller_args = (Controller_args*) args;
-  int clientSocket = controller_args->clientSocket;
+  int client_socket = controller_args->clientSocket;
   char* input_buffer = controller_args->input_buffer;
   char* responses_buffer = controller_args->responses_buffer;
 
-  //printf("clientSocket: %d, input_buffer: %s, responses_buffer: %s\n", clientSocket, controller_args->input_buffer, controller_args->responses_buffer);
+  // Read from client socket
+  if (read(client_socket, input_buffer, sizeof(controller_args->input_buffer)) < 0) {
+    perror_exit("read");
+    pthread_exit(NULL);
+  }
 
-  free(controller_args);
+  // Process input
+  if (strcmp(input_buffer, "") == 0)
+  {
+    sleep(1); // fix this
+  }
+  else
+  {
+    printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
 
-  // // we have something to read from the socket
-  // if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
-  //   perror_exit("read");
-  // }
+    if (strcmp(input_buffer, "exit") == 0)
+    {
+      // wait for the jobs to finish and return their responses to the client
+      // clear the queue
+      // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
+      respond_to_commander(client_socket, "SERVER TERMINATED");
+      free(controller_args);
+      printf("after free\n");
+      close(client_socket);
+      printf("after close\n");
 
-  // // sanitize the input buffer to remove any harmful characters
-  // sanitize(input_buffer);
 
-  // if (strcmp(input_buffer, "") == 0)
-  // {
-  //   sleep(1); // fix this
-  // }
-  // else
-  // {
+      return;
+    }
+    else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
+    {
+      handle_issue_job(input_buffer, responses_buffer);
+    }
+    else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
+    {
+      handle_set_concurrency(input_buffer, responses_buffer);
+    }
+    else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
+    {
+      handle_stop_job(input_buffer, responses_buffer);
+    }
+    else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
+    {
+      handle_poll_jobs(responses_buffer);
+    }
+    // clear input buffer
+    memset(input_buffer, 0, sizeof(controller_args->input_buffer));
+  }
 
-  //   printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
-
-  //   if (strcmp(input_buffer, "exit") == 0)
-  //   {
-  //     // wait for the jobs to finish and return their responses to the client
-  //     // clear the queue
-  //     // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
-  //     respond_to_commander(clientSocket, "SERVER TERMINATED");
-
-  //     close(clientSocket);
-  //     free(queue);
-  //     close(sock);
-  //     delete_job_executor_server_file(); 
-  //     free(controller_args);
-
-  //     return;
-  //   }
-  //   else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
-  //   {
-  //     handle_issue_job(input_buffer,responses_buffer);
-
-  //   }
-  //   else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
-  //   {
-  //     handle_set_concurrency(input_buffer, responses_buffer);
-
-  //   }
-  //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
-  //   {
-  //     handle_stop_job(input_buffer, responses_buffer);
-      
-  //   }
-  //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
-  //   {
-  //     handle_poll_jobs(responses_buffer);
-      
-  //   }
-  //   // clear input buffer
-  //   memset(input_buffer, 0, sizeof(input_buffer));
-
-  //   // close the connection socket
-  //   close(clientSocket);
-  // }
+  // close the connection socket
+  //close(client_socket);
+  //pthread_exit(NULL);
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -399,64 +464,62 @@ int main(int argc, char *argv[])
       continue;
     }
 
-    //pthread_join(controller_thread, NULL);
+    pthread_join(controller_thread, NULL);
+    printf("after join\n");
 
     pthread_detach(controller_thread);
+    printf("after detatch\n");
 
     
-    // we have something to read from the socket
-    if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
-      perror_exit("read");
-    }
+    // // we have something to read from the socket
+    // if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
+    //   perror_exit("read");
+    // }
 
-    if (strcmp(input_buffer, "") == 0)
-    {
-      sleep(1); // fix this
-    }
-    else
-    {
+    // if (strcmp(input_buffer, "") == 0)
+    // {
+    //   sleep(1); // fix this
+    // }
+    // else
+    // {
 
-      printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
+    //   printf("%s: Read: *%s*\n", LOG_PREFIX, input_buffer);
 
-      if (strcmp(input_buffer, "exit") == 0)
-      {
-        // wait for the jobs to finish and return their responses to the client
-        // clear the queue
-        // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
-        respond_to_commander(clientSocket, "SERVER TERMINATED");
-        close(clientSocket);
-        break;
-      }
-      else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
-      {
-        handle_issue_job(input_buffer,responses_buffer);
+    //   if (strcmp(input_buffer, "exit") == 0)
+    //   {
+    //     // wait for the jobs to finish and return their responses to the client
+    //     // clear the queue
+    //     // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
+    //     respond_to_commander(clientSocket, "SERVER TERMINATED");
+    //     close(clientSocket);
+    //     break;
+    //   }
+    //   else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
+    //   {
+    //     handle_issue_job(input_buffer,responses_buffer);
 
-      }
-      else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
-      {
-        handle_set_concurrency(input_buffer, responses_buffer);
+    //   }
+    //   else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
+    //   {
+    //     handle_set_concurrency(input_buffer, responses_buffer);
 
-      }
-      else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
-      {
-        handle_stop_job(input_buffer, responses_buffer);
+    //   }
+    //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
+    //   {
+    //     handle_stop_job(input_buffer, responses_buffer);
         
-      }
-      else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
-      {
-        handle_poll_jobs(responses_buffer);
+    //   }
+    //   else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
+    //   {
+    //     handle_poll_jobs(responses_buffer);
         
-      }
-      // clear input buffer
-      memset(input_buffer, 0, sizeof(input_buffer));
+    //   }
+    //   // clear input buffer
+    //   memset(input_buffer, 0, sizeof(input_buffer));
 
-      // close the connection socket
-      close(clientSocket);
-    }
-
-    if (strcmp(input_buffer, "exit") == 0) {
-      break;
-    }
+    //   // close the connection socket
+    //   close(clientSocket);
+    // }
 
   }
 
