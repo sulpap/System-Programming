@@ -62,23 +62,23 @@ void save_arg(char *message, int argc, char *argv[]) {
   }
 }
 
-void read_response_from_executor(int sock, const char *message) 
-{
-  if (read(sock, (void *)message, COMMANDS_BUFFER) < 0) {
-    perror_exit("read");
-  }
+// void read_response_from_executor(int sock, const char *message) 
+// {
+//   if (read(sock, (void *)message, COMMANDS_BUFFER) < 0) {
+//     perror_exit("read");
+//   }
   
-  return;
-}
-
-// void read_response_from_executor(int sock, char *message) {
-//     ssize_t bytes_read = read(sock, (void *)message, COMMANDS_BUFFER);
-//     if (bytes_read < 0) {
-//         perror("read");
-//         exit(EXIT_FAILURE);
-//     }
-//     message[bytes_read] = '\0';  // null terminator
+//   return;
 // }
+
+void read_response_from_executor(int sock, char *message) {
+  ssize_t bytes_read = read(sock, (void *)message, COMMANDS_BUFFER);
+  if (bytes_read < 0) {
+      perror("read");
+      exit(EXIT_FAILURE);
+  }
+  message[bytes_read] = '\0';  // null terminator
+}
 
 int main(int argc, char *argv[]) {
   if (argc <= 3) {
@@ -125,7 +125,6 @@ int main(int argc, char *argv[]) {
       (strlen(message) >= 4 && strncmp(message, "poll", 4) == 0)) {
     // receive response from executor
     read_response_from_executor(sock, message);
-    //read(sock, (void *)message, COMMANDS_BUFFER);
     printf("%s: %s\n", LOG_PREFIX, message);
   }
 

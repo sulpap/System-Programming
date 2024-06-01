@@ -15,6 +15,8 @@
         "queue.h": "c",
         "stat.h": "c",
         "respond_to_commander.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "socket.h": "c",
+        "in.h": "c"
     }
 }
