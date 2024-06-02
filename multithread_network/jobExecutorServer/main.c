@@ -29,7 +29,7 @@ pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
 int concurrencyLevel = 1; // default
 int numberOfRunningJobs = 0;
-int jobId = 0; // can we make it not global
+int jobId = 0; // can we make it not global ?
 
 int bufferSize = 0;
 
