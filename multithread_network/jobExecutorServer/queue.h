@@ -8,10 +8,11 @@ typedef struct qNode *Queue;
 struct qNode {
     char job[COMMANDS_BUFFER];
     int jobID;
+    int clientSocket;
     Queue next;
 };
 
-void enqueue(Queue *queue, char *job, int jobID);
+void enqueue(Queue *queue, char *job, int jobID, int clientSocket);
 Queue dequeue(Queue *queue);
 void remove_job_from_queue(Queue *queue, int jobID);
 bool isEmpty(Queue queue);

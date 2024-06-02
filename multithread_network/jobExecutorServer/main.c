@@ -13,62 +13,57 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "job_executor_server_file.h"
 #include "respond_to_commander.h"
 #include "../common.h"
-#include "correct_syntax.h"
 #include "defines.h"
+#include "utility.h"
 #include "queue.h"
-#include "remove_first_word.h"
 #include "execute_command.h"
 
 Queue queue = NULL;
 
-typedef struct {
-  int clientSocket;
-  char input_buffer[COMMANDS_BUFFER];
-  char responses_buffer[COMMANDS_BUFFER];
-} Controller_args;
-
 bool server_running = true;
 pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
 int concurrencyLevel = 1; // default
 int numberOfRunningJobs = 0;
-int jobId = 0;
+int jobId = 0; // can we make it not global
 
-int sock=-5; 
+int bufferSize = 0;
+
 int clientSocket=-5;
 
 void create_child_process(Queue *queue);
 
-void perror_exit(char *message)
+void* dummy(void* arg) 
 {
-  printf("%s", LOG_PREFIX);
-  perror(message);
-  exit(EXIT_FAILURE);
-}
+  pthread_mutex_lock(&queue_mutex);
+  
+  while (server_running && queue == NULL) {
+    pthread_cond_wait(&queue_cond, &queue_mutex); // Wait for a job to be enqueued
+  }
 
-/* it would be very bad if someone passed us an dirname like
- * "; rm *"  and we naively created a command  "ls ; rm *".
- * So..we remove everything but slashes and alphanumerics.
- */
-void sanitize(char *str)
-{
-	char *src, *dest;
-	for ( src = dest = str ; *src ; src++ )
-		if ( *src == '/' || isalnum(*src) )
-			*dest++ = *src;
-	*dest = '\0';
-}
+  if (!server_running) {
+    pthread_mutex_unlock(&queue_mutex);
+    pthread_exit(NULL);
+  }
+  
+  printf("%s worker writing: job inserted queue!\n", LOG_PREFIX);
 
-void* print_hello_world(void* arg) {
-  printf("Hello, World!\n");
+  if (numberOfRunningJobs < concurrencyLevel)
+  {
+    create_child_process(&queue);
+  }
+  
+  pthread_mutex_unlock(&queue_mutex);
+
   pthread_exit(NULL);
 }
 
-void initialize_server(int argc, char *argv[]) {
-  int port;
+int initialize_server(int argc, char *argv[]) {
+  int port, sock;
   struct sockaddr_in server;
   struct sockaddr *serverptr=(struct sockaddr *)&server;
 
@@ -95,6 +90,8 @@ void initialize_server(int argc, char *argv[]) {
   }
   printf("%s Listening for connections to port %d\n", LOG_PREFIX, port);
 
+  return sock;
+
 }
 
 void handle_child_finished_signal(int signum)
@@ -106,7 +103,8 @@ void handle_child_finished_signal(int signum)
   {
     printf("%s: Child process with pid %d finished.\n", LOG_PREFIX, pid);
 
-    create_child_process(&queue);
+    //create_child_process(&queue);
+    numberOfRunningJobs--;
   }
   return;
 }
@@ -148,30 +146,36 @@ void create_child_process(Queue *queue)
   }
 }
 
-void handle_issue_job(char *input_buffer, char *responses_buffer) 
+void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSocket) 
 {
   jobId++;
 
   // remove the command (issueJob, in this case)
   remove_first_word(input_buffer);
 
-  // put the job in the queue and save its position in it
-  enqueue(&queue, input_buffer, jobId);
+  // put the job in the queue if there is space
+  pthread_mutex_lock(&queue_mutex);
+  if (counter(queue) < bufferSize)
+  {
+    enqueue(&queue, input_buffer, jobId, clientSocket);
+    pthread_cond_signal(&queue_cond);
+  } // else wait for a spot to empty
+  pthread_mutex_unlock(&queue_mutex);
 
   // parent process
   // clear buffer, save the triplet, send it to commander
   memset(responses_buffer, 0, sizeof(responses_buffer));
-  sprintf(responses_buffer, "<job_%d,%s>", jobId, input_buffer);
+  sprintf(responses_buffer, "<job_%d,%s,%d>", jobId, input_buffer, clientSocket);
   respond_to_commander(clientSocket, responses_buffer);
 
   printf("%s Adding job in the queue...\n", LOG_PREFIX);
   print_queue(queue);
 
   // if we can, we execute it
-  if (numberOfRunningJobs < concurrencyLevel)
-  {
-    create_child_process(&queue);
-  }
+  // if (numberOfRunningJobs < concurrencyLevel)
+  // {
+  //   create_child_process(&queue);
+  // }
 }
 
 void handle_set_concurrency(char* input_buffer, char *responses_buffer) 
@@ -200,6 +204,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
 
   // see if it is in the queue
   bool found = false;
+  pthread_mutex_lock(&queue_mutex);
   found = find_in_queue(queue, jobIdToStop);
 
   if (found)
@@ -220,11 +225,14 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
     sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
     respond_to_commander(clientSocket, responses_buffer);
   }
+  pthread_mutex_unlock(&queue_mutex);
 }
 
 void handle_poll_jobs(char* responses_buffer)
 {
   memset(responses_buffer, 0, sizeof(responses_buffer));
+
+  pthread_mutex_lock(&queue_mutex);
 
   // check if there are no queued jobs
   if (queue == NULL)
@@ -246,27 +254,28 @@ void handle_poll_jobs(char* responses_buffer)
       current = current->next;
     }
   }
+  pthread_mutex_unlock(&queue_mutex);
+
   // send the tuples to the commander
   respond_to_commander(clientSocket, responses_buffer);
-
 }
 
-void* controller(void* args)
+void* controller(void *clientSocket)
 {
-  printf("this is controller thread\n");
+  // set the buffers
+  char input_buffer[COMMANDS_BUFFER];
+  memset(input_buffer, 0, sizeof(input_buffer));
 
-  Controller_args* controller_args = (Controller_args*) args;
-  int client_socket = controller_args->clientSocket;
-  char* input_buffer = controller_args->input_buffer;
-  char* responses_buffer = controller_args->responses_buffer;
+  char responses_buffer[COMMANDS_BUFFER];
+  memset(responses_buffer, 0, sizeof(responses_buffer));
 
   // Read from client socket
-  if (read(client_socket, input_buffer, sizeof(controller_args->input_buffer)) < 0) {
+  if (read(clientSocket, input_buffer, sizeof(input_buffer)) < 0) {
     perror_exit("read");
     pthread_exit(NULL);
   }
 
-  // Process input
+  // process input
   if (strcmp(input_buffer, "") == 0)
   {
     sleep(1); // fix this
@@ -280,19 +289,23 @@ void* controller(void* args)
       // wait for the jobs to finish and return their responses to the client
       // clear the queue
       // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
-      respond_to_commander(client_socket, "SERVER TERMINATED");
-      free(controller_args);
-      close(client_socket);
-
       pthread_mutex_lock(&server_mutex);
       server_running = false;
       pthread_mutex_unlock(&server_mutex);
+      
+      pthread_cond_broadcast(&queue_cond);
+
+      respond_to_commander(clientSocket, "SERVER TERMINATED");
+
+      close(clientSocket);
+
+      pthread_exit(NULL);
 
       return;
     }
     else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
     {
-      handle_issue_job(input_buffer, responses_buffer);
+      handle_issue_job(input_buffer, responses_buffer, clientSocket);
     }
     else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
     {
@@ -307,18 +320,13 @@ void* controller(void* args)
       handle_poll_jobs(responses_buffer);
     }
     // clear input buffer
-    memset(input_buffer, 0, sizeof(controller_args->input_buffer));
+    memset(input_buffer, 0, sizeof(input_buffer));
   }
-
-  // close the connection socket
-  //close(client_socket);
-  //pthread_exit(NULL);
 }
 
 
 int main(int argc, char *argv[])
 {
-  create_job_executor_server_file(); //////////////////////
 
   if (argc != 4) {
     fprintf(stderr, "%s", correct_syntax());
@@ -331,9 +339,9 @@ int main(int argc, char *argv[])
   struct sockaddr *clientptr=(struct sockaddr *)&client;
   struct hostent *rem;
 
-  initialize_server(argc, argv);
+  int sock = initialize_server(argc, argv);
 
-  int bufferSize = atoi(argv[2]);
+  bufferSize = atoi(argv[2]);
   int threadPoolSize = atoi(argv[3]);
 
   //creates threadPoolSize worker threads
@@ -341,7 +349,7 @@ int main(int argc, char *argv[])
   pthread_t worker_thread[threadPoolSize];
   for(i = 0; i < threadPoolSize; i++) 
   {
-    thread_attr = pthread_create(&worker_thread[i], NULL, print_hello_world, NULL); //(void *)&t_args[j]
+    thread_attr = pthread_create(&worker_thread[i], NULL, dummy, NULL); //(void *)&t_args[j]
     
     if (thread_attr)
     {
@@ -350,17 +358,10 @@ int main(int argc, char *argv[])
     }
   }
 
-  for (i = 0; i < threadPoolSize; i++)
-  {
-    pthread_join(worker_thread[i], NULL);
-  }
-
-  // set the buffers
-  char input_buffer[COMMANDS_BUFFER];
-  memset(input_buffer, 0, sizeof(input_buffer));
-
-  char responses_buffer[COMMANDS_BUFFER];
-  memset(responses_buffer, 0, sizeof(responses_buffer));
+  // for (i = 0; i < threadPoolSize; i++)
+  // {
+  //   pthread_join(worker_thread[i], NULL);
+  // }
 
   // handler for terminated jobs
   install_child_finish_handler();
@@ -381,25 +382,24 @@ int main(int argc, char *argv[])
 
     pthread_t controller_thread;
 
-    // Allocate and initialize the controller args
-    Controller_args* controller_args = (Controller_args*) malloc(sizeof(Controller_args));
-    controller_args->clientSocket = clientSocket;
-    memset(controller_args->input_buffer, 0, sizeof(controller_args->input_buffer));
-    memset(controller_args->responses_buffer, 0, sizeof(controller_args->responses_buffer));
-
     // creates a controller thread when a client is connected
-    if(pthread_create(&controller_thread, NULL, controller, controller_args) < 0) { 
+    if(pthread_create(&controller_thread, NULL, controller, (void *)clientSocket) < 0) { 
       perror("Could not create controller thread");
-      free(controller_args);
       continue;
     }
 
     pthread_join(controller_thread, NULL);
 
     pthread_detach(controller_thread);
+
   }
 
   printf("%s: end looping\n", LOG_PREFIX);
+
+  for (i = 0; i < threadPoolSize; i++)
+  {
+    pthread_join(worker_thread[i], NULL);
+  }
 
  //detach workers?
 
@@ -409,7 +409,9 @@ int main(int argc, char *argv[])
 
   close(sock);
 
-  delete_job_executor_server_file(); // needs??????????????
+  pthread_mutex_destroy(&queue_mutex);
+  pthread_mutex_destroy(&server_mutex);
+  pthread_cond_destroy(&queue_cond);
 
   printf("%s: Bye!\n", LOG_PREFIX);
 

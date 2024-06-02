@@ -5,7 +5,7 @@
 #include "defines.h"
 
 // adds a job to the queue
-void enqueue(Queue *queue, char *job, int jobID) {
+void enqueue(Queue *queue, char *job, int jobID, int clientSocket) {
     // allocate the memory needed
     Queue newNode = (Queue)malloc(sizeof(struct qNode));
     if (newNode == NULL) {
@@ -16,6 +16,7 @@ void enqueue(Queue *queue, char *job, int jobID) {
     // assign the values
     strcpy(newNode->job, job);
     newNode->jobID = jobID;
+    newNode->clientSocket = clientSocket;
     newNode->next = NULL;
 
     // add it to the queue
@@ -97,7 +98,7 @@ void print_queue(Queue queue) {
     }
     Queue current = queue;
     while (current != NULL) {
-        printf("%s QUEUE: <job_%d, %s>\n", LOG_PREFIX, current->jobID, current->job);
+        printf("%s QUEUE: <job_%d, %s, clientSocket_%d>\n", LOG_PREFIX, current->jobID, current->job, current->clientSocket);
         current = current->next;
     }
     return;
