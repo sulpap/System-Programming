@@ -33,9 +33,9 @@ int jobId = 0; // can we make it not global ?
 
 int bufferSize = 0;
 
-int clientSocket=-5;
+//int clientSocket=-5;
 
-void create_child_process(Queue *queue);
+void create_child_process(Queue *queue, int clientSocket);
 
 void* dummy(void* arg) 
 {
@@ -54,7 +54,7 @@ void* dummy(void* arg)
 
   if (numberOfRunningJobs < concurrencyLevel)
   {
-    create_child_process(&queue);
+    create_child_process(&queue, queue->clientSocket);
   }
   
   pthread_mutex_unlock(&queue_mutex);
@@ -114,7 +114,7 @@ void install_child_finish_handler()
   signal(SIGCHLD, handle_child_finished_signal);
 }
 
-void create_child_process(Queue *queue)
+void create_child_process(Queue *queue, int clientSocket)
 {
   Queue job = dequeue(queue); // removing job from queue to be executed
 
@@ -162,7 +162,6 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
   } // else wait for a spot to empty
   pthread_mutex_unlock(&queue_mutex);
 
-  // parent process
   // clear buffer, save the triplet, send it to commander
   memset(responses_buffer, 0, sizeof(responses_buffer));
   sprintf(responses_buffer, "<job_%d,%s,%d>", jobId, input_buffer, clientSocket);
@@ -178,7 +177,7 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
   // }
 }
 
-void handle_set_concurrency(char* input_buffer, char *responses_buffer) 
+void handle_set_concurrency(char* input_buffer, char *responses_buffer, int clientSocket) 
 {
   remove_first_word(input_buffer);
 
@@ -189,7 +188,7 @@ void handle_set_concurrency(char* input_buffer, char *responses_buffer)
   respond_to_commander(clientSocket, responses_buffer);
 }
 
-void handle_stop_job(char* input_buffer, char *responses_buffer)
+void handle_stop_job(char* input_buffer, char *responses_buffer, int clientSocket)
 {
   remove_first_word(input_buffer);
 
@@ -228,7 +227,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer)
   pthread_mutex_unlock(&queue_mutex);
 }
 
-void handle_poll_jobs(char* responses_buffer)
+void handle_poll_jobs(char* responses_buffer, int clientSocket)
 {
   memset(responses_buffer, 0, sizeof(responses_buffer));
 
@@ -309,15 +308,15 @@ void* controller(void *clientSocket)
     }
     else if (strlen(input_buffer) >= 14 && strncmp(input_buffer, "setConcurrency", 14) == 0)
     {
-      handle_set_concurrency(input_buffer, responses_buffer);
+      handle_set_concurrency(input_buffer, responses_buffer, clientSocket);
     }
     else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "stop", 4) == 0)
     {
-      handle_stop_job(input_buffer, responses_buffer);
+      handle_stop_job(input_buffer, responses_buffer, clientSocket);
     }
     else if (strlen(input_buffer) >= 4 && strncmp(input_buffer, "poll", 4) == 0)
     {
-      handle_poll_jobs(responses_buffer);
+      handle_poll_jobs(responses_buffer, clientSocket);
     }
     // clear input buffer
     memset(input_buffer, 0, sizeof(input_buffer));
@@ -340,6 +339,7 @@ int main(int argc, char *argv[])
   struct hostent *rem;
 
   int sock = initialize_server(argc, argv);
+  int clientSocket;
 
   bufferSize = atoi(argv[2]);
   int threadPoolSize = atoi(argv[3]);

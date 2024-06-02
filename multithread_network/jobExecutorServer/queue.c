@@ -98,7 +98,7 @@ void print_queue(Queue queue) {
     }
     Queue current = queue;
     while (current != NULL) {
-        printf("%s QUEUE: <job_%d, %s, clientSocket_%d>\n", LOG_PREFIX, current->jobID, current->job, current->clientSocket);
+        printf("%s QUEUE: <job_%d, %s, %d>\n", LOG_PREFIX, current->jobID, current->job, current->clientSocket);
         current = current->next;
     }
     return;
