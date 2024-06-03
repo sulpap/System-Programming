@@ -62,15 +62,6 @@ void save_arg(char *message, int argc, char *argv[]) {
   }
 }
 
-// void read_response_from_executor(int sock, const char *message) 
-// {
-//   if (read(sock, (void *)message, COMMANDS_BUFFER) < 0) {
-//     perror_exit("read");
-//   }
-  
-//   return;
-// }
-
 void read_response_from_executor(int sock, char *message) {
   ssize_t bytes_read = read(sock, (void *)message, COMMANDS_BUFFER);
   if (bytes_read < 0) {

@@ -31,6 +31,8 @@ bool server_running = true;
 pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t concurrency_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 void create_child_process(Queue *queue, int clientSocket);
 
@@ -49,11 +51,13 @@ void* dummy(void* arg)
   
   printf("%s Worker writing: issueJob job inserted queue!\n", LOG_PREFIX);
 
+  pthread_mutex_lock(&concurrency_mutex);
   if (numberOfRunningJobs < concurrencyLevel)
   {
     create_child_process(&queue, queue->clientSocket);
   }
-  
+  pthread_mutex_unlock(&concurrency_mutex);
+
   pthread_mutex_unlock(&queue_mutex);
 
   pthread_exit(NULL);
@@ -165,8 +169,6 @@ void create_child_process(Queue *queue, int clientSocket)
     respond_to_commander(clientSocket, output_buffer);
     respond_to_commander(clientSocket, "\n-----jobID output end-----\n");
 
-    printf("done\n");
-    
     // Close clientSocket
     close(clientSocket);
 
@@ -213,7 +215,9 @@ void handle_set_concurrency(char* input_buffer, char *responses_buffer, int clie
 {
   remove_first_word(input_buffer);
 
+  pthread_mutex_lock(&concurrency_mutex);
   concurrencyLevel = atoi(input_buffer);
+  pthread_mutex_unlock(&concurrency_mutex);
 
   memset(responses_buffer, 0, sizeof(responses_buffer));
   sprintf(responses_buffer, "CONCURRENCY SET AT %d", concurrencyLevel);
