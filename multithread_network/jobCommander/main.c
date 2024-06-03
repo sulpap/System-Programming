@@ -120,13 +120,21 @@ int main(int argc, char *argv[]) {
 
   // read the response from the executor and print it
   if (strcmp(message, "exit") == 0 ||
-      (strlen(message) >= 8 && strncmp(message, "issueJob", 8) == 0) ||
+    // (strlen(message) >= 8 && strncmp(message, "issueJob", 8) == 0) ||
       (strlen(message) >= 14 && strncmp(message, "setConcurrency", 14) == 0) ||
       (strlen(message) >= 4 && strncmp(message, "stop", 4) == 0) ||
       (strlen(message) >= 4 && strncmp(message, "poll", 4) == 0)) {
     // receive response from executor
     read_response_from_executor(sock, message);
     printf("%s: %s\n", LOG_PREFIX, message);
+  }
+  else if (strlen(message) >= 8 && strncmp(message, "issueJob", 8) == 0) {
+    read_response_from_executor(sock, message);
+    printf("%s\n", message);
+    read_response_from_executor(sock, message);
+    printf("%s\n", message);
+    read_response_from_executor(sock, message);
+    printf("%s\n", message);
   }
 
   // close the socket

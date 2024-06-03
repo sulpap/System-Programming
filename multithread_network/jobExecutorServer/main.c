@@ -22,18 +22,15 @@
 
 Queue queue = NULL;
 
-bool server_running = true;
-pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
-
 int concurrencyLevel = 1; // default
 int numberOfRunningJobs = 0;
 int jobId = 0; // can we make it not global ?
+int bufferSize = 0; // global?
+bool server_running = true;
 
-int bufferSize = 0;
-
-//int clientSocket=-5;
+pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
 void create_child_process(Queue *queue, int clientSocket);
 
@@ -42,7 +39,7 @@ void* dummy(void* arg)
   pthread_mutex_lock(&queue_mutex);
   
   while (server_running && queue == NULL) {
-    pthread_cond_wait(&queue_cond, &queue_mutex); // Wait for a job to be enqueued
+    pthread_cond_wait(&queue_cond, &queue_mutex); // wait for a job to be enqueued
   }
 
   if (!server_running) {
@@ -50,7 +47,7 @@ void* dummy(void* arg)
     pthread_exit(NULL);
   }
   
-  printf("%s worker writing: job inserted queue!\n", LOG_PREFIX);
+  printf("%s Worker writing: issueJob job inserted queue!\n", LOG_PREFIX);
 
   if (numberOfRunningJobs < concurrencyLevel)
   {
@@ -94,26 +91,6 @@ int initialize_server(int argc, char *argv[]) {
 
 }
 
-void handle_child_finished_signal(int signum)
-{
-  pid_t pid;
-  int status;
-
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-  {
-    printf("%s: Child process with pid %d finished.\n", LOG_PREFIX, pid);
-
-    //create_child_process(&queue);
-    numberOfRunningJobs--;
-  }
-  return;
-}
-
-void install_child_finish_handler()
-{
-  signal(SIGCHLD, handle_child_finished_signal);
-}
-
 void create_child_process(Queue *queue, int clientSocket)
 {
   Queue job = dequeue(queue); // removing job from queue to be executed
@@ -130,15 +107,75 @@ void create_child_process(Queue *queue, int clientSocket)
   pid_t pid = fork();
   if (pid == 0)
   {
-    // child process executes the command
+    // child process
+    // create output file
+    char output_filename[20];
+    sprintf(output_filename, "%d.output", getpid());
+
+    FILE *output_file = fopen(output_filename, "w");
+    
+    if (output_file == NULL)
+    {
+      perror("Error creating output file");
+      exit(EXIT_FAILURE);
+    }
+    
+    // redirect stdout to output file
+    dup2(fileno(output_file), STDOUT_FILENO);
+    close(fileno(output_file));
+
+    // execute the command
     execute_command(job->job);
-    close(clientSocket);
+
+    exit(EXIT_SUCCESS);
   }
   else if (pid > 0)
   {
     // parent process
     numberOfRunningJobs++;
-    close(clientSocket); // parent closes socket to client 
+    //close(clientSocket); // parent closes socket to client 
+
+    int status;
+    waitpid(pid, &status, 0);
+    printf("%s: Child process with pid %d finished.\n", LOG_PREFIX, pid);
+
+    // Read output file and send its contents to the client
+
+    char output_filename[20];
+    sprintf(output_filename, "%d.output", pid);
+
+    FILE *output_file = fopen(output_filename, "r");
+    if (output_file == NULL) {
+        perror("Error opening output file");
+        exit(EXIT_FAILURE);
+    }
+
+    char output_buffer[COMMANDS_BUFFER];
+    char responses_buffer[COMMANDS_BUFFER];
+
+    size_t bytes_read;
+    while ((bytes_read = fread(output_buffer, 1, sizeof(output_buffer), output_file)) > 0) {
+      continue;
+    }
+
+    printf("%s", output_buffer);
+
+    //sprintf(responses_buffer, "-----jobID output start-----\n\n%s\n-----jobID output end-----\n", output_buffer);
+    respond_to_commander(clientSocket, "-----jobID output start-----\n\n");
+    respond_to_commander(clientSocket, output_buffer);
+    respond_to_commander(clientSocket, "\n-----jobID output end-----\n");
+
+    printf("done\n");
+    
+    // Close clientSocket
+    close(clientSocket);
+
+    // Remove the output file
+    if (remove(output_filename) != 0) {
+      perror("Error removing output file");
+    }
+
+    numberOfRunningJobs--;
   }
   else
   {
@@ -164,17 +201,12 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
 
   // clear buffer, save the triplet, send it to commander
   memset(responses_buffer, 0, sizeof(responses_buffer));
-  sprintf(responses_buffer, "<job_%d,%s,%d>", jobId, input_buffer, clientSocket);
+  sprintf(responses_buffer, "JOB <job_%d,%s> SUBMITTED", jobId, input_buffer);
   respond_to_commander(clientSocket, responses_buffer);
 
   printf("%s Adding job in the queue...\n", LOG_PREFIX);
   print_queue(queue);
 
-  // if we can, we execute it
-  // if (numberOfRunningJobs < concurrencyLevel)
-  // {
-  //   create_child_process(&queue);
-  // }
 }
 
 void handle_set_concurrency(char* input_buffer, char *responses_buffer, int clientSocket) 
@@ -358,14 +390,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  // for (i = 0; i < threadPoolSize; i++)
-  // {
-  //   pthread_join(worker_thread[i], NULL);
-  // }
-
-  // handler for terminated jobs
-  install_child_finish_handler();
-
   while (1)
   {
     pthread_mutex_lock(&server_mutex);
@@ -394,7 +418,7 @@ int main(int argc, char *argv[])
 
   }
 
-  printf("%s: end looping\n", LOG_PREFIX);
+  printf("%s: End looping\n", LOG_PREFIX);
 
   for (i = 0; i < threadPoolSize; i++)
   {
