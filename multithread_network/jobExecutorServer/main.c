@@ -22,7 +22,7 @@
 
 Queue queue = NULL;
 
-int concurrencyLevel = 1; // default
+int concurrencyLevel = 3; // default
 int numberOfRunningJobs = 0;
 int jobId = 0; // can we make it not global ?
 int bufferSize = 0; // global?
@@ -30,38 +30,14 @@ bool server_running = true;
 
 pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t concurrency_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t running_jobs_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t job_cond = PTHREAD_COND_INITIALIZER;
 
 
 void create_child_process(Queue *queue, int clientSocket);
-
-void* dummy(void* arg) 
-{
-  pthread_mutex_lock(&queue_mutex);
-  
-  while (server_running && queue == NULL) {
-    pthread_cond_wait(&queue_cond, &queue_mutex); // wait for a job to be enqueued
-  }
-
-  if (!server_running) {
-    pthread_mutex_unlock(&queue_mutex);
-    pthread_exit(NULL);
-  }
-  
-  printf("%s Worker writing: issueJob job inserted queue!\n", LOG_PREFIX);
-
-  pthread_mutex_lock(&concurrency_mutex);
-  if (numberOfRunningJobs < concurrencyLevel)
-  {
-    create_child_process(&queue, queue->clientSocket);
-  }
-  pthread_mutex_unlock(&concurrency_mutex);
-
-  pthread_mutex_unlock(&queue_mutex);
-
-  pthread_exit(NULL);
-}
 
 int initialize_server(int argc, char *argv[]) {
   int port, sock;
@@ -95,6 +71,38 @@ int initialize_server(int argc, char *argv[]) {
 
 }
 
+void* worker(void* arg) 
+{
+  while(1)
+  {  
+    pthread_mutex_lock(&queue_mutex);
+    
+    while (server_running && queue == NULL) {
+      pthread_cond_wait(&queue_cond, &queue_mutex); // wait for a job to be enqueued
+    }
+
+    if (!server_running) {      // && queue NULL ? --------------------------------------------
+      pthread_mutex_unlock(&queue_mutex);
+      pthread_exit(NULL);
+    }
+    
+    printf("%s Worker %ld writing: processing job!\n", LOG_PREFIX, pthread_self());
+
+    pthread_mutex_lock(&concurrency_mutex);
+
+    while (numberOfRunningJobs >= concurrencyLevel) {
+      pthread_cond_wait(&job_cond, &concurrency_mutex); // wait for available slots
+    }
+
+    create_child_process(&queue, queue->clientSocket);
+
+    pthread_mutex_unlock(&concurrency_mutex);
+    pthread_mutex_unlock(&queue_mutex);
+
+  }
+  pthread_exit(NULL);
+}
+
 void create_child_process(Queue *queue, int clientSocket)
 {
   Queue job = dequeue(queue); // removing job from queue to be executed
@@ -102,6 +110,7 @@ void create_child_process(Queue *queue, int clientSocket)
   if (job == NULL)
   {
     printf("%s No job in the queue to run.\n", LOG_PREFIX);
+    free(job);
     return;
   }
 
@@ -136,8 +145,9 @@ void create_child_process(Queue *queue, int clientSocket)
   else if (pid > 0)
   {
     // parent process
+    pthread_mutex_lock(&running_jobs_mutex);
     numberOfRunningJobs++;
-    //close(clientSocket); // parent closes socket to client 
+    pthread_mutex_unlock(&running_jobs_mutex);
 
     int status;
     waitpid(pid, &status, 0);
@@ -155,14 +165,13 @@ void create_child_process(Queue *queue, int clientSocket)
     }
 
     char output_buffer[COMMANDS_BUFFER];
-    char responses_buffer[COMMANDS_BUFFER];
+    memset(output_buffer, 0, sizeof(output_buffer));
+    //char responses_buffer[COMMANDS_BUFFER];
 
     size_t bytes_read;
     while ((bytes_read = fread(output_buffer, 1, sizeof(output_buffer), output_file)) > 0) {
       continue;
     }
-
-    printf("%s", output_buffer);
 
     //sprintf(responses_buffer, "-----jobID output start-----\n\n%s\n-----jobID output end-----\n", output_buffer);
     respond_to_commander(clientSocket, "-----jobID output start-----\n\n");
@@ -177,12 +186,16 @@ void create_child_process(Queue *queue, int clientSocket)
       perror("Error removing output file");
     }
 
+    pthread_mutex_lock(&running_jobs_mutex);
     numberOfRunningJobs--;
+    pthread_mutex_unlock(&running_jobs_mutex);
+    pthread_cond_signal(&job_cond);
   }
   else
   {
     perror("fork failed");
   }
+  free(job);
 }
 
 void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSocket) 
@@ -191,15 +204,23 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
 
   // remove the command (issueJob, in this case)
   remove_first_word(input_buffer);
+  printf("after removing the first word\n");
 
   // put the job in the queue if there is space
   pthread_mutex_lock(&queue_mutex);
   if (counter(queue) < bufferSize)
   {
     enqueue(&queue, input_buffer, jobId, clientSocket);
-    pthread_cond_signal(&queue_cond);
+    pthread_cond_signal(&queue_cond); // notify waiting threads
   } // else wait for a spot to empty
   pthread_mutex_unlock(&queue_mutex);
+  printf("after enqueueing\n");
+
+  // notify worker threads for job availability
+  pthread_mutex_lock(&concurrency_mutex);
+  pthread_cond_broadcast(&job_cond);
+  pthread_mutex_unlock(&concurrency_mutex);
+  printf("after notifying\n");
 
   // clear buffer, save the triplet, send it to commander
   memset(responses_buffer, 0, sizeof(responses_buffer));
@@ -246,7 +267,11 @@ void handle_stop_job(char* input_buffer, char *responses_buffer, int clientSocke
   {
     // remove it
     remove_job_from_queue(&queue, jobIdToStop);
+  }
+  pthread_mutex_unlock(&queue_mutex);
 
+  if (found)
+  {
     // clear buffer and respond to the commander
     memset(responses_buffer, 0, sizeof(responses_buffer));
     sprintf(responses_buffer, "JOB %d REMOVED", jobIdToStop);
@@ -260,7 +285,6 @@ void handle_stop_job(char* input_buffer, char *responses_buffer, int clientSocke
     sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
     respond_to_commander(clientSocket, responses_buffer);
   }
-  pthread_mutex_unlock(&queue_mutex);
 }
 
 void handle_poll_jobs(char* responses_buffer, int clientSocket)
@@ -357,6 +381,7 @@ void* controller(void *clientSocket)
     // clear input buffer
     memset(input_buffer, 0, sizeof(input_buffer));
   }
+  pthread_exit(NULL);
 }
 
 
@@ -385,7 +410,7 @@ int main(int argc, char *argv[])
   pthread_t worker_thread[threadPoolSize];
   for(i = 0; i < threadPoolSize; i++) 
   {
-    thread_attr = pthread_create(&worker_thread[i], NULL, dummy, NULL); //(void *)&t_args[j]
+    thread_attr = pthread_create(&worker_thread[i], NULL, worker, NULL); //(void *)&t_args[j]
     
     if (thread_attr)
     {
@@ -415,21 +440,18 @@ int main(int argc, char *argv[])
       perror("Could not create controller thread");
       continue;
     }
-
     pthread_join(controller_thread, NULL);
 
     pthread_detach(controller_thread);
 
   }
 
-  printf("%s: End looping\n", LOG_PREFIX);
-
   for (i = 0; i < threadPoolSize; i++)
   {
     pthread_join(worker_thread[i], NULL);
   }
 
- //detach workers?
+  printf("%s: End looping\n", LOG_PREFIX);
 
   // clearance
 
