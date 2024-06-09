@@ -34,7 +34,7 @@ struct hostent* get_server_address(const char *hostname) {
   struct hostent *rem;
   if ((rem = gethostbyname(hostname)) == NULL) 
   {
-    printf("%s", LOG_PREFIX);
+    printf("%s:", LOG_PREFIX);
     herror("gethostbyname");
     exit(1);
   }
@@ -46,7 +46,7 @@ void connect_to_server(int sock, struct sockaddr_in server) {
 
   if (connect(sock, serverptr, sizeof(server)) < 0) 
   {
-    printf("%s", LOG_PREFIX);
+    printf("%s:", LOG_PREFIX);
     perror_exit("connect");
   }
 }
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 
   connect_to_server(sock, server);
 
-  printf("%s Connecting to %s port %d\n", LOG_PREFIX, argv[1], port);
+  printf("%s: Connecting to %s port %d\n", LOG_PREFIX, argv[1], port);
   printf("%s: Command = %s\n", LOG_PREFIX, command);
 
   // checks compatibility
