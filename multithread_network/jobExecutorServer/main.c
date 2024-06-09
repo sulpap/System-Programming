@@ -43,12 +43,9 @@ void* worker()
   while(1)
   {  
     pthread_mutex_lock(&queue_mutex);
-    
-    printf("%s worker: %ld is sleeping\n", LOG_PREFIX, pthread_self());
-    
-    while (server_running && queue == NULL) {
+       
+    if (server_running && queue == NULL) {
       pthread_cond_wait(&queue_cond, &queue_mutex); // wait for a job to be enqueued
-      printf("%s worker: %ld is awake\n", LOG_PREFIX, pthread_self());
     }
 
     if (!server_running) {
@@ -56,6 +53,7 @@ void* worker()
       pthread_exit(NULL);
     }
 
+    // search the queue to find a job that is not running
     Queue job = queue;
     while (job != NULL && job->activeJob) {
       job = job->next;
@@ -66,13 +64,13 @@ void* worker()
       continue;
     }
 
+    // when the job is found, start running it
     job->activeJob = true;
     
-    printf("%s Worker %ld writing: processing job!\n", LOG_PREFIX, pthread_self());
+    printf("%s: Worker %ld writing: processing job!\n", LOG_PREFIX, pthread_self());
 
     pthread_mutex_lock(&concurrency_mutex);
 
-    // while (numberOfRunningJobs >= concurrencyLevel) {
     if (numberOfRunningJobs >= concurrencyLevel) {
       pthread_cond_wait(&job_cond, &concurrency_mutex); // wait for available slots
     }
@@ -82,6 +80,14 @@ void* worker()
     create_child_process(&queue, queue->clientSocket);
 
     // queue mutex is unlocked inside create_child_process.
+
+    pthread_mutex_lock(&running_jobs_mutex);
+    // for exit: when the running jobs finish notify queue_cond waiting in exit to terminate the server
+    if (numberOfRunningJobs == 0 && !server_running) 
+    {
+      pthread_cond_signal(&queue_cond);
+    }
+    pthread_mutex_unlock(&running_jobs_mutex);
 
   }
   pthread_exit(NULL);
@@ -94,12 +100,12 @@ void create_child_process(Queue *queue, int clientSocket)
 
   if (job == NULL)
   {
-    printf("%s No job in the queue to run.\n", LOG_PREFIX);
+    printf("%s: No job in the queue to run.\n", LOG_PREFIX);
     free(job);
     return;
   }
 
-  printf("%s Job got out of the queue ready to run %s\n", LOG_PREFIX, job->job);
+  printf("%s: Job got out of the queue ready to run %s\n", LOG_PREFIX, job->job);
 
   pthread_mutex_lock(&running_jobs_mutex);
   numberOfRunningJobs++;
@@ -150,26 +156,25 @@ void create_child_process(Queue *queue, int clientSocket)
 
     char output_buffer[COMMANDS_BUFFER];
     memset(output_buffer, 0, sizeof(output_buffer));
-    //char responses_buffer[COMMANDS_BUFFER];
 
     size_t bytes_read;
     while ((bytes_read = fread(output_buffer, 1, sizeof(output_buffer), output_file)) > 0) {
       continue;
     }
 
-    //sprintf(responses_buffer, "-----jobID output start-----\n\n%s\n-----jobID output end-----\n", output_buffer);
     respond_to_commander(clientSocket, "-----jobID output start-----\n\n");
-    respond_to_commander(clientSocket, output_buffer);
+    respond_to_commander(clientSocket, output_buffer); // assuming that the content is not too big and can be stored in this buffer
     respond_to_commander(clientSocket, "\n-----jobID output end-----\n");
 
-    // Close clientSocket
+    // close client socket
     close(clientSocket);
 
-    // Remove the output file
+    // remove the output file
     if (remove(output_filename) != 0) {
       perror("Error removing output file");
     }
 
+    // reduce the number of running jobs and notify for the empty slot
     pthread_mutex_lock(&running_jobs_mutex);
     numberOfRunningJobs--;
     pthread_mutex_unlock(&running_jobs_mutex);
@@ -195,7 +200,7 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
 
   if (counter(queue) >= bufferSize) 
   {
-    printf("%s Buffer is full, waiting for an empty slot...\n", LOG_PREFIX);
+    printf("%s: Buffer is full, waiting for an empty slot...\n", LOG_PREFIX);
     pthread_cond_wait(&queue_cond, &queue_mutex);
   }
 
@@ -211,11 +216,7 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
     }
     pthread_mutex_unlock(&running_jobs_mutex);
     pthread_mutex_unlock(&concurrency_mutex);
-  } // else wait for a spot to empty
-  // else {
-  //   printf("%s Buffer is full, waiting for an empty slot...\n", LOG_PREFIX);
-  //   pthread_cond_wait(&queue_cond, &queue_mutex);
-  // }
+  }
   pthread_mutex_unlock(&queue_mutex);
 
   // clear buffer, save the triplet, send it to commander
@@ -223,7 +224,7 @@ void handle_issue_job(char *input_buffer, char *responses_buffer, int clientSock
   sprintf(responses_buffer, "JOB <job_%d,%s> SUBMITTED", jobId, input_buffer);
   respond_to_commander(clientSocket, responses_buffer);
 
-  printf("%s Adding job in the queue...\n", LOG_PREFIX);
+  printf("%s: Adding job in the queue...\n", LOG_PREFIX);
   print_queue(queue);
 
 }
@@ -267,7 +268,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer, int clientSocke
     return;
   }
 
-  printf("%s jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
+  printf("%s: jobIdToStop = %d\n", LOG_PREFIX, jobIdToStop);
 
   // see if it is in the queue
   bool found = false;
@@ -290,7 +291,7 @@ void handle_stop_job(char* input_buffer, char *responses_buffer, int clientSocke
   }
   else
   { // if it's not found
-    printf("%s jobIdToStop not found in queued.\n", LOG_PREFIX);
+    printf("%s: jobIdToStop not found in queued.\n", LOG_PREFIX);
 
     memset(responses_buffer, 0, sizeof(*responses_buffer));
     sprintf(responses_buffer, "JOB %d NOTFOUND", jobIdToStop);
@@ -319,28 +320,20 @@ void handle_poll_jobs(char* responses_buffer, int clientSocket)
       memset(msg, 0, sizeof(msg));
       sprintf(msg, "<job_%d,%s>\n", current->jobID, current->job);
 
-      strcat(responses_buffer, msg);
+      strcat(responses_buffer, msg); // put the strings one after the other in a buffer
 
       current = current->next;
     }
   }
   pthread_mutex_unlock(&queue_mutex);
 
-  // send the tuples to the commander
+  // send the buffer containing all the jobs to the commander
   respond_to_commander(clientSocket, responses_buffer);
-}
-
-void notify_queued_jobs()
-{
-  Queue job = queue;
-  while (job != NULL) {
-    respond_to_commander(job->clientSocket, "JOB TERMINATED BEFORE EXECUTION");
-    job = job->next;
-  }
 }
 
 void* controller(void *clientSocket)
 {
+  // make the socket int again
   int csock = *(int*)clientSocket;
   // set the buffers
   char input_buffer[COMMANDS_BUFFER];
@@ -349,7 +342,7 @@ void* controller(void *clientSocket)
   char responses_buffer[COMMANDS_BUFFER];
   memset(responses_buffer, 0, sizeof(responses_buffer));
 
-  // Read from client socket
+  // read from client socket
   if (read(csock, input_buffer, sizeof(input_buffer)) < 0) {
     perror_exit("read");
     pthread_exit(NULL);
@@ -359,24 +352,29 @@ void* controller(void *clientSocket)
 
   if (strcmp(input_buffer, "exit") == 0)
   {
-    // wait for the jobs to finish and return their responses to the client
-    // clear the queue
-    // respond to the adistoixo client that SERVER TERMINATED BEFORE EXECUTION
     pthread_mutex_lock(&server_mutex);
     server_running = false;
     pthread_mutex_unlock(&server_mutex);
     
+    // notify workers to do their tasks
     pthread_cond_broadcast(&queue_cond);
 
+    // for every job in the queue respond to the respective client
     pthread_mutex_lock(&queue_mutex);
-    // Queue job = queue;
-    // while (job != NULL) {
-    //   respond_to_commander(job->clientSocket, "JOB TERMINATED BEFORE EXECUTION");
-    //   job = job->next;
-    // }
-    notify_queued_jobs();
+    notify_clients(queue);
     pthread_mutex_unlock(&queue_mutex);
 
+    // wait for all workers to finish their jobs
+    pthread_mutex_lock(&running_jobs_mutex);
+    if (numberOfRunningJobs > 0) 
+    {
+      pthread_cond_wait(&queue_cond, &running_jobs_mutex);
+    }
+    pthread_mutex_unlock(&running_jobs_mutex);
+
+    free(queue);
+
+    //send response that server teminates
     respond_to_commander(csock, "SERVER TERMINATED");
 
     close(csock);
@@ -410,7 +408,6 @@ void* controller(void *clientSocket)
 
 int main(int argc, char *argv[])
 {
-
   if (argc != 4) {
     fprintf(stderr, "%s", correct_syntax());
     return 1;
@@ -420,7 +417,6 @@ int main(int argc, char *argv[])
   socklen_t clientlen;
 
   struct sockaddr *clientptr=(struct sockaddr *)&client;
-  // struct hostent *rem;
 
   int sock = initialize_server(argv);
   int clientSocket;
@@ -437,7 +433,7 @@ int main(int argc, char *argv[])
     
     if (thread_attr)
     {
-      printf("ERROR; return code from pthread_create() is %d\n", thread_attr);
+      printf("ERROR: return code from pthread_create() is %d\n", thread_attr);
       perror_exit("create worker");
     }
   }
@@ -460,8 +456,7 @@ int main(int argc, char *argv[])
 
     // creates a controller thread when a client is connected
     if(pthread_create(&controller_thread, NULL, controller, (void *)&clientSocket) < 0) { 
-      perror("Could not create controller thread");
-      continue;
+      perror_exit("create controller");
     }
 
     pthread_join(controller_thread, NULL);
@@ -470,23 +465,19 @@ int main(int argc, char *argv[])
 
   }
 
-  // wait for the workers that are running to finish
-  for (i = 0; i < threadPoolSize; i++)
-  {
-    pthread_join(worker_thread[i], NULL);
-  }
-
   printf("%s: End looping\n", LOG_PREFIX);
 
   // clearance
 
-  free(queue);
-
   close(sock);
 
+  pthread_mutex_destroy(&running_jobs_mutex);
+  pthread_mutex_destroy(&concurrency_mutex);
   pthread_mutex_destroy(&queue_mutex);
   pthread_mutex_destroy(&server_mutex);
+
   pthread_cond_destroy(&queue_cond);
+  pthread_cond_destroy(&job_cond);
 
   printf("%s: Bye!\n", LOG_PREFIX);
 

@@ -63,21 +63,12 @@ void remove_job_from_queue(Queue *queue, int jobID) {
         current_queue = current_queue->next;
     }
 
-    printf("%s Job with ID %d not found in the queue.\n", LOG_PREFIX, jobID);
+    printf("%s: Job with ID %d not found in the queue.\n", LOG_PREFIX, jobID);
 }
 
 // true: queue is empty, false: it's not
 bool isEmpty(Queue queue) {
     return queue == NULL;
-}
-
-// returns jobID of first job in the queue --> oldest
-int get_first_job(Queue queue){
-    if (!isEmpty(queue)) {
-        return queue->jobID;
-    } else {
-        return -1;
-    }
 }
 
 // if the job is in the queue, return true. if it's not return false.
@@ -94,12 +85,12 @@ bool find_in_queue(Queue queue, int jobIdToStop) {
 // prints all jobs in the queue
 void print_queue(Queue queue) {
     if (isEmpty(queue)) {
-        printf("%s Queue is empty.\n", LOG_PREFIX);
+        printf("%s: Queue is empty.\n", LOG_PREFIX);
         return;
     }
     Queue current = queue;
     while (current != NULL) {
-        printf("%s QUEUE: <job_%d, %s, %d>\n", LOG_PREFIX, current->jobID, current->job, current->clientSocket);
+        printf("%s: QUEUE: <job_%d, %s, %d>\n", LOG_PREFIX, current->jobID, current->job, current->clientSocket);
         current = current->next;
     }
     return;
@@ -114,4 +105,14 @@ int counter(Queue queue) {
         current = current->next;
     }
     return count;
+}
+
+// for every job in the queue, respond to the respective client
+void notify_clients(Queue queue)
+{ 
+  Queue job = queue;
+  while (job != NULL) {
+    respond_to_commander(job->clientSocket, "JOB TERMINATED BEFORE EXECUTION");
+    job = job->next;
+  }
 }
