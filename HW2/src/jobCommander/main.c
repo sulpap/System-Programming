@@ -8,11 +8,11 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
-#include "correct_syntax.h"
-#include "validate_command.h"
-#include "../common.h"
-#include "defines.h"
+#include "../include/correct_syntax.h"
+#include "../include/validate_command.h"
+#include "../include/common.h"
 
+#define LOG_PREFIX "[jobCommander]"
 #define h_addr h_addr_list[0]
 
 void perror_exit(char *message)

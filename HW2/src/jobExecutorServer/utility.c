@@ -7,8 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include "utility.h"
-#include "defines.h"
+#include "../include/utility.h"
+#include "../include/defines.h"
 
 void perror_exit(char *message)
 {

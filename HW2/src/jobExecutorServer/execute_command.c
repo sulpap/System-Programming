@@ -1,7 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "execute_command.h"
+#include "../include/execute_command.h"
 
 #define MAXIMUM_NUMBER_OF_TOKENS 1000
 

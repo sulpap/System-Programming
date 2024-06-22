@@ -17,7 +17,7 @@ void enqueue(Queue *queue, char *job, int jobID, int clientSocket) {
     strcpy(newNode->job, job);
     newNode->jobID = jobID;
     newNode->clientSocket = clientSocket;
-    newNode->activeJob = false;
+    newNode->isActive = false;
     newNode->next = NULL;
 
     // add it to the queue

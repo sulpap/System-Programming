@@ -9,7 +9,7 @@ struct qNode {
     char job[COMMANDS_BUFFER];
     int jobID;
     int clientSocket;
-    bool activeJob;
+    bool isActive;
     Queue next;
 };
 

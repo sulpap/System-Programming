@@ -17,6 +17,9 @@
         "respond_to_commander.h": "c",
         "stdio.h": "c",
         "socket.h": "c",
-        "in.h": "c"
+        "in.h": "c",
+        "defines.h": "c",
+        "correct_syntax.h": "c",
+        "utility.h": "c"
     }
 }

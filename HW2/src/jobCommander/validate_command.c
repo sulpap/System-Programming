@@ -1,5 +1,5 @@
 #include <string.h>
-#include "validate_command.h"
+#include "../include/validate_command.h"
 
 // checks compatibility
 int validate_command(const char *command) {

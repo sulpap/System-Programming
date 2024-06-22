@@ -2,7 +2,7 @@
 #define __QUEUE_H__
 
 #include <stdbool.h>
-#include "../common.h"
+#include "common.h"
 
 typedef struct qNode *Queue;
 struct qNode {

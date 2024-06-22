@@ -28,7 +28,7 @@ void sanitize(char *str)
 
 // gives the user instructions on running the program
 const char *correct_syntax() {
-  return "jobExecutorServer/bin/jobExecutorServer [portNum] [bufferSize] [threadPoolSize]\n";
+  return "./bin/jobExecutorServer [portNum] [bufferSize] [threadPoolSize]\n";
 }
 
 void remove_first_word(char *sentence) {

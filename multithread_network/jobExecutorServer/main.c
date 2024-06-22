@@ -55,7 +55,7 @@ void* worker()
 
     // search the queue to find a job that is not running
     Queue job = queue;
-    while (job != NULL && job->activeJob) {
+    while (job != NULL && job->isActive) {
       job = job->next;
     }
 
@@ -65,7 +65,7 @@ void* worker()
     }
 
     // when the job is found, start running it
-    job->activeJob = true;
+    job->isActive = true;
     
     printf("%s: Worker %ld writing: processing job!\n", LOG_PREFIX, pthread_self());
 

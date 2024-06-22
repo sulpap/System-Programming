@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "queue.h"
-#include "defines.h"
+#include "../include/queue.h"
+#include "../include/defines.h"
+#include "../include/respond_to_commander.h"
 
 // adds a job to the queue
 void enqueue(Queue *queue, char *job, int jobID, int clientSocket) {

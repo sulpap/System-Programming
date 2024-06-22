@@ -1,7 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "respond_to_commander.h"
+#include "../include/respond_to_commander.h"
 
 void respond_to_commander(int sock, const void *message) {
   size_t message_length = strlen(message);

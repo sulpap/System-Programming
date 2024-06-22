@@ -1,4 +1,4 @@
-#include "correct_syntax.h"
+#include "../include/correct_syntax.h"
 
 // gives the user instructions on running the program
 const char *correct_syntax() {

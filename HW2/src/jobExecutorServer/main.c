@@ -14,11 +14,11 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include "respond_to_commander.h"
-#include "../common.h"
-#include "defines.h"
-#include "utility.h"
-#include "queue.h"
-#include "execute_command.h"
+#include "../include/common.h"
+#include "../include/defines.h"
+#include "../include/utility.h"
+#include "../include/queue.h"
+#include "../include/execute_command.h"
 
 Queue queue = NULL;
 
@@ -381,7 +381,7 @@ void* controller(void *clientSocket)
 
     pthread_exit(NULL);
 
-    return;
+    return NULL;
   }
   else if (strlen(input_buffer) >= 8 && strncmp(input_buffer, "issueJob", 8) == 0)
   {
