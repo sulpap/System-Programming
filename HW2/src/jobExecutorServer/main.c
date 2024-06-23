@@ -150,8 +150,8 @@ void create_child_process(Queue *queue, int clientSocket)
 
     FILE *output_file = fopen(output_filename, "r");
     if (output_file == NULL) {
-        perror("Error opening output file");
-        exit(EXIT_FAILURE);
+      perror("Error opening output file");
+      exit(EXIT_FAILURE);
     }
 
     char output_buffer[COMMANDS_BUFFER];
